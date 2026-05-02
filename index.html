@@ -348,14 +348,17 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
         <button class="btn btn-warning btn-sm" onclick="openIntModal()">📞 割込み</button>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:8px;">
-      <select class="sel" id="manualAddSel" style="flex:1;font-size:13px;">
-        <option value="">── 顧客を手動追加 ──</option>
-      </select>
-      <button class="btn btn-success btn-sm" onclick="manualAddToRoute()">＋ 追加</button>
-      <button class="btn btn-outline btn-sm" onclick="clearRoute()">🗑️ クリア</button>
+    <!-- 顧客検索追加 -->
+    <div style="position:relative;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;position:relative;">
+          <input type="text" id="routeSearchInput" class="fi" placeholder="🔍 顧客名で検索して追加..." oninput="routeSearch()" autocomplete="off" style="font-size:14px;padding:10px 14px;">
+          <div id="routeSearchResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--white);border:1.5px solid var(--accent);border-radius:8px;box-shadow:var(--shadow2);z-index:50;max-height:240px;overflow-y:auto;margin-top:4px;"></div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="clearRoute()">🗑️ クリア</button>
+      </div>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:6px;">↕️ ハンドル（≡）をドラッグして順番を入れ替えできます</p>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:6px;">↕️ ↑↓ボタンで順番を入れ替えできます</p>
     <div id="intBanner" style="display:none;" class="int-banner">
       <span style="font-size:22px;">📞</span>
       <div style="flex:1;">
@@ -536,7 +539,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
   <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" onclick="this.classList.remove('show')"></div>
 
 <script>
 // =================================================================
@@ -918,17 +921,7 @@ function removeFromRoute(id){routeOrder=routeOrder.filter(c=>c.id!==id);renderRo
 
 function renderRouteList(){
   const el=document.getElementById('routeList');
-  // Update manual add selector
-  const sel=document.getElementById('manualAddSel');
-  if(sel){
-    sel.innerHTML='<option value="">── 顧客を手動追加 ──</option>';
-    C.forEach(c=>{
-      if(!routeOrder.find(r=>r.id===c.id)){
-        const d=dSince(c.lastDate);
-        sel.innerHTML+=`<option value="${c.id}">${c.name}（${d}日前）</option>`;
-      }
-    });
-  }
+
   if(!routeOrder.length){
     el.innerHTML=`<div class="empty"><div class="empty-ic">🗺️</div><p>「自動最適化」または手動で顧客を追加してください</p></div>`;
     return;
@@ -963,17 +956,53 @@ function renderRouteList(){
   }).join('');
 }
 
-// Manual add
-function manualAddToRoute(){
-  const sel=document.getElementById('manualAddSel');
-  const id=parseInt(sel.value);
-  if(!id){showToast('⚠️ 顧客を選択してください','err');return;}
+// Route search
+function routeSearch(){
+  const q=document.getElementById('routeSearchInput').value.trim().toLowerCase();
+  const res=document.getElementById('routeSearchResults');
+  if(!q){res.style.display='none';return;}
+  const matches=C.filter(c=>
+    !routeOrder.find(r=>r.id===c.id)&&
+    (c.name.toLowerCase().includes(q)||(c.yomi&&c.yomi.includes(q))||c.addr.toLowerCase().includes(q))
+  );
+  if(!matches.length){
+    res.style.display='block';
+    res.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;text-align:center;">該当なし</div>';
+    return;
+  }
+  res.style.display='block';
+  res.innerHTML=matches.map(c=>{
+    const d=dSince(c.lastDate);
+    const col=pinColor(d);
+    return`<div onclick="addToRouteFromSearch(${c.id})" style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s;" onmouseover="this.style.background='var(--s1)'" onmouseout="this.style.background=''">
+      <div style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:700;">${c.name}</div>
+        <div style="font-size:11px;color:var(--muted);">${c.addr}</div>
+      </div>
+      <div style="font-size:11px;color:${col};font-weight:700;flex-shrink:0;">${d}日前</div>
+    </div>`;
+  }).join('');
+}
+
+function addToRouteFromSearch(id){
   const c=C.find(x=>x.id===id);
   if(!c)return;
   routeOrder.push(c);
+  document.getElementById('routeSearchInput').value='';
+  document.getElementById('routeSearchResults').style.display='none';
   renderRouteList();renderMap();updateRouteStats();
   showToast(`✅ ${c.name}をルートに追加しました`,'ok');
 }
+
+// Close search results when tapping outside
+document.addEventListener('click',e=>{
+  const inp=document.getElementById('routeSearchInput');
+  const res=document.getElementById('routeSearchResults');
+  if(inp&&res&&!inp.contains(e.target)&&!res.contains(e.target)){
+    res.style.display='none';
+  }
+});
 
 // Clear route
 function clearRoute(){
@@ -1226,13 +1255,14 @@ function renderRank(){
 // =================================================================
 let toastTimer=null;
 function hideToast(){const t=document.getElementById('toast');if(toastTimer)clearTimeout(toastTimer);t.classList.remove('show');}
+let toastTimer=null;
 function showToast(msg,type=''){
   const t=document.getElementById('toast');
-  if(toastTimer)clearTimeout(toastTimer);
+  if(toastTimer){clearTimeout(toastTimer);toastTimer=null;}
   t.textContent=msg;
   t.className='toast'+(type?' '+type:'');
   t.classList.add('show');
-  toastTimer=setTimeout(()=>{t.classList.remove('show');toastTimer=null;},2800);
+  toastTimer=setTimeout(()=>{t.classList.remove('show');toastTimer=null;},3500);
 }
 </script>
 </body>
