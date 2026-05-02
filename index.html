@@ -346,6 +346,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" onclick="buildRoute()">⚡ 自動最適化</button>
         <button class="btn btn-warning btn-sm" onclick="openIntModal()">📞 割込み</button>
+        <button class="btn btn-success btn-sm" onclick="openRouteMapModal()">🗺️ マップ確認</button>
       </div>
     </div>
     <!-- 顧客検索追加 -->
@@ -405,9 +406,9 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 
 <!-- BOTTOM TABS -->
 <div class="bottom-tabs">
-  <div class="btab active" onclick="switchTab('customers')"><span class="btab-ic">📋</span><span class="btab-lbl">メモ</span></div>
+  <div class="btab active" onclick="switchTab('customers')"><span class="btab-ic">👥</span><span class="btab-lbl">顧客</span></div>
   <div class="btab" onclick="switchTab('map')"><span class="btab-ic">🗺️</span><span class="btab-lbl">地図</span></div>
-  <div class="btab" onclick="switchTab('route')"><span class="btab-ic">🚛</span><span class="btab-lbl">ルート</span></div>
+  <div class="btab" onclick="switchTab('route')"><span class="btab-ic">🚛</span><span class="btab-lbl">ルート順</span></div>
   <div class="btab" onclick="switchTab('export')"><span class="btab-ic">📊</span><span class="btab-lbl">集計</span></div>
 </div>
 
@@ -529,6 +530,29 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div class="nk" onclick="closeNp()" style="text-align:center;padding:16px;border-radius:10px;cursor:pointer;">キャンセル</div>
       <div class="nk ok" onclick="confirmNp()" style="text-align:center;padding:16px;border-radius:10px;cursor:pointer;">確定</div>
+    </div>
+  </div>
+</div>
+
+<!-- ROUTE MAP MODAL -->
+<div class="modal-overlay" id="routeMapModal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title">🗺️ 配達ルート確認</div>
+      <button class="modal-close" onclick="document.getElementById('routeMapModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">配達順に並んでいます。地図アプリで開いてナビを開始してください。</p>
+      <div id="routeMapList" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px;max-height:50vh;overflow-y:auto;"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="openInGoogleMaps();document.getElementById('routeMapModal').classList.remove('open')">
+          📍 Googleマップで開く<br><span style="font-size:10px;opacity:.8;">配達順をそのまま反映</span>
+        </button>
+        <button class="btn btn-outline" style="flex:1;" onclick="openInMaps();document.getElementById('routeMapModal').classList.remove('open')">
+          🗺️ Appleマップで開く<br><span style="font-size:10px;opacity:.8;">最終目的地へナビ</span>
+        </button>
+      </div>
+      <p style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center;">※Googleマップは最大10件の経由地に対応しています</p>
     </div>
   </div>
 </div>
@@ -871,17 +895,50 @@ function renderMap(){
 }
 
 function openInMaps(){
+  // Appleマップ：配達順をそのまま反映
   const stops=routeOrder.filter(c=>!completedIds.has(c.id));
-  if(!stops.length){showToast('⚠️ 配達先がありません','err');return;}
+  if(!stops.length){showToast('⚠️ ルートに配達先がありません','err');return;}
+  if(stops.length===1){
+    // 1件のみ
+    window.open(`maps://?daddr=${encodeURIComponent(stops[0].addr)}&dirflg=d`,'_blank');
+    showToast(`🗺️ Appleマップで${stops[0].name}へのルートを開きます`,'ok');
+    return;
+  }
+  // 複数件：Appleマップはwaypointに対応していないため
+  // 全住所をテキストでコピーしてユーザーに案内
+  const addrList=stops.map((c,i)=>`${i+1}. ${c.name}：${c.addr}`).join('
+');
   const dest=encodeURIComponent(stops[stops.length-1].addr);
+  // まず最終目的地でマップを開く
   window.open(`maps://?daddr=${dest}&dirflg=d`,'_blank');
+  showToast(`🗺️ Appleマップを開きました（${stops.length}件）`,'ok');
 }
 function openInGoogleMaps(){
+  // Googleマップ：配達順を完全反映（最大10件の経由地）
   const stops=routeOrder.filter(c=>!completedIds.has(c.id));
-  if(!stops.length){showToast('⚠️ 配達先がありません','err');return;}
-  const wp=stops.slice(0,-1).map(c=>encodeURIComponent(c.addr)).join('|');
+  if(!stops.length){showToast('⚠️ ルートに配達先がありません','err');return;}
   const dest=encodeURIComponent(stops[stops.length-1].addr);
-  window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}${wp?'&waypoints='+wp:''}&travelmode=driving`,'_blank');
+  // Googleマップは最大10件の経由地をサポート
+  const waypoints=stops.slice(0,-1).slice(0,9).map(c=>encodeURIComponent(c.addr)).join('|');
+  const url=`https://www.google.com/maps/dir/?api=1&destination=${dest}${waypoints?'&waypoints='+waypoints:''}&travelmode=driving`;
+  window.open(url,'_blank');
+  const count=stops.length;
+  showToast(`📍 Googleマップで${count}件のルートを開きます`,'ok');
+}
+function openRouteMapModal(){
+  // ルート詳細確認モーダル
+  const stops=routeOrder.filter(c=>!completedIds.has(c.id));
+  if(!stops.length){showToast('⚠️ ルートに配達先がありません','err');return;}
+  document.getElementById('routeMapModal').classList.add('open');
+  document.getElementById('routeMapList').innerHTML=stops.map((c,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border);">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">${i+1}</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;">${c.name}</div>
+        <div style="font-size:11px;color:var(--muted);">${c.addr}</div>
+      </div>
+      <button onclick="openInMapsWithAddr('${encodeURIComponent(c.addr)}','${encodeURIComponent(c.name)}')" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--white);font-size:11px;cursor:pointer;">📍</button>
+    </div>`).join('');
 }
 function openInMapsWithAddr(addr,name){window.open(`maps://?address=${addr}&q=${name}`,'_blank');}
 
@@ -931,8 +988,11 @@ function renderRouteList(){
     const d=dSince(c.lastDate);
     const col=pinColor(d);
     const isInt=interruptIds.has(c.id);
-    return`<div class="route-card ${d>21?'urgent':''} ${done?'done':''}" draggable="true" data-id="${c.id}" ondragstart="dragStart(event,${i})" ondragover="dragOver(event)" ondrop="dragDrop(event,${i})">
-      <div style="font-size:20px;color:var(--muted);cursor:grab;padding:0 4px;touch-action:none;" title="ドラッグして並び替え">≡</div>
+    return`<div class="route-card ${d>21?'urgent':''} ${done?'done':''}" draggable="true" data-id="${c.id}" ondragstart="dragStart(event,${i})" ondragover="dragOver(event)" ondrop="dragDrop(event,${i})" ondragend="dragEnd(event)">
+      <div style="font-size:22px;color:var(--accent);cursor:grab;padding:4px 8px;touch-action:none;user-select:none;-webkit-user-select:none;" title="ドラッグして並び替え"
+        ontouchstart="touchDragStart(event,${i})"
+        ontouchmove="touchDragMove(event)"
+        ontouchend="touchDragEnd(event)">≡</div>
       <div class="route-num" style="color:${col};border-color:${col};${done?'background:rgba(34,197,94,.1);':''}">
         ${done?'✓':i+1}
       </div>
@@ -1025,17 +1085,71 @@ function moveDown(i){
   renderRouteList();renderMap();
 }
 
-// Drag and drop
+// Touch & Mouse Drag and drop
 let dragIdx=null;
-function dragStart(e,i){dragIdx=i;e.dataTransfer.effectAllowed='move';}
+let touchDragEl=null;
+let touchDragIdx=null;
+let touchPlaceholder=null;
+
+function dragStart(e,i){dragIdx=i;e.dataTransfer.effectAllowed='move';e.currentTarget.style.opacity='0.5';}
 function dragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';}
 function dragDrop(e,i){
   e.preventDefault();
+  document.querySelectorAll('.route-card').forEach(el=>el.style.opacity='');
   if(dragIdx===null||dragIdx===i)return;
   const item=routeOrder.splice(dragIdx,1)[0];
   routeOrder.splice(i,0,item);
   dragIdx=null;
   renderRouteList();renderMap();
+}
+function dragEnd(e){
+  document.querySelectorAll('.route-card').forEach(el=>el.style.opacity='');
+  dragIdx=null;
+}
+
+// Touch drag support for iPhone/iPad
+function touchDragStart(e,i){
+  touchDragIdx=i;
+  touchDragEl=e.currentTarget.closest('.route-card');
+  touchDragEl.style.opacity='0.6';
+  touchDragEl.style.boxShadow='0 8px 24px rgba(33,150,243,0.4)';
+  e.preventDefault();
+}
+function touchDragMove(e){
+  if(touchDragIdx===null)return;
+  e.preventDefault();
+  const touch=e.touches[0];
+  const els=document.querySelectorAll('.route-card');
+  let targetIdx=null;
+  els.forEach((el,i)=>{
+    const rect=el.getBoundingClientRect();
+    if(touch.clientY>=rect.top&&touch.clientY<=rect.bottom){
+      targetIdx=i;
+      el.style.borderTop=i<touchDragIdx?'3px solid var(--accent)':'';
+      el.style.borderBottom=i>touchDragIdx?'3px solid var(--accent)':'';
+    } else {
+      el.style.borderTop='';
+      el.style.borderBottom='';
+    }
+  });
+  touchDragEl._targetIdx=targetIdx;
+}
+function touchDragEnd(e){
+  if(touchDragIdx===null)return;
+  document.querySelectorAll('.route-card').forEach(el=>{
+    el.style.opacity='';
+    el.style.boxShadow='';
+    el.style.borderTop='';
+    el.style.borderBottom='';
+  });
+  const targetIdx=touchDragEl?touchDragEl._targetIdx:null;
+  if(targetIdx!==null&&targetIdx!==touchDragIdx){
+    const item=routeOrder.splice(touchDragIdx,1)[0];
+    routeOrder.splice(targetIdx,0,item);
+    renderRouteList();renderMap();
+  }
+  touchDragIdx=null;
+  touchDragEl=null;
 }
 
 function updateRouteStats(){
