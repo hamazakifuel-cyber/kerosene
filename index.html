@@ -302,6 +302,15 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <button class="btn btn-outline btn-sm" onclick="locateMe()">📡 現在地</button>
       <button class="btn btn-outline btn-sm" onclick="resetAndGeocode()">🔄 ピン再表示</button>
     </div>
+    <!-- ピン設定モードバナー -->
+    <div id="pinSetBanner" style="display:none;background:linear-gradient(135deg,rgba(33,150,243,.15),rgba(21,101,192,.1));border-top:2px solid var(--accent);padding:12px 14px;align-items:center;gap:10px;">
+      <span style="font-size:22px;">📍</span>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;color:var(--accent);" id="pinSetName"></div>
+        <div style="font-size:11px;color:var(--muted);">地図上をタップしてピンの位置を設定してください</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="cancelPinSetMode()" style="flex-shrink:0;color:var(--red);border-color:var(--red);">キャンセル</button>
+    </div>
   </div>
   <!-- 凡例 -->
   <div style="background:var(--white);border-radius:var(--r);padding:14px;box-shadow:var(--shadow);">
@@ -685,7 +694,10 @@ function initLeafletMap(){
     window._mapEditMode=false;
     window._mapEditCustomer=null;
     map.getContainer().style.cursor='';
-    showToast('✅ '+c.name+'の位置を設定しました','ok');
+    // バナー非表示
+    const banner=document.getElementById('pinSetBanner');
+    if(banner)banner.style.display='none';
+    showToast('✅ '+c.name+'さんのピンを保存しました','ok');
   });
   // 拠点ピン（住所があればジオコード、なければ地図中心に配置）
   if(baseOfficeAddr){
@@ -770,16 +782,38 @@ function addCustomerPin(c,map){
   `);
 }
 
-function setCustomerOnMap(id){
+function setCustomerOnMap(id){startPinSetMode(id);}
+
+function startPinSetMode(id){
   const c=C.find(x=>x.id===id);
   if(!c)return;
-  const map=window._leafletMap;
-  if(!map){showToast('⚠️ 先に地図タブを開いてください','err');return;}
-  window._mapEditMode=true;
-  window._mapEditCustomer=c;
-  map.getContainer().style.cursor='crosshair';
-  showToast('📍 地図上で'+c.name+'の位置をタップしてください');
+  closeDetailSheet();
+  // 地図タブに切り替え
   switchTab('map');
+  setTimeout(()=>{
+    const map=window._leafletMap;
+    if(!map){showToast('⚠️ 地図の読み込みをお待ちください','err');return;}
+    // ピン設定モードON
+    window._mapEditMode=true;
+    window._mapEditCustomer=c;
+    map.getContainer().style.cursor='crosshair';
+    // バナー表示
+    const banner=document.getElementById('pinSetBanner');
+    const nameEl=document.getElementById('pinSetName');
+    if(banner){banner.style.display='flex';}
+    if(nameEl)nameEl.textContent=c.name+'さんの位置をタップ';
+    showToast('📍 地図上で'+c.name+'さんの位置をタップしてください');
+  },300);
+}
+
+function cancelPinSetMode(){
+  window._mapEditMode=false;
+  window._mapEditCustomer=null;
+  const map=window._leafletMap;
+  if(map)map.getContainer().style.cursor='';
+  const banner=document.getElementById('pinSetBanner');
+  if(banner)banner.style.display='none';
+  showToast('キャンセルしました');
 }
 
 function locateMe(){
@@ -885,24 +919,14 @@ function saveBaseOffice(){
   baseOfficeAddr=addr;
   localStorage.setItem('v4_officeName',name);
   localStorage.setItem('v4_officeAddr',addr);
-  showToast('✅ 拠点住所を保存しました','ok');
-  updateMapIframe();
+  showToast('✅ 拠点住所を保存しました。地図タブで確認してください','ok');
+  // Leafletマップが開いていれば拠点マーカーを更新
+  if(window._leafletMap){
+    geocodeAndAddBase(window._leafletMap);
+  }
 }
 
-function updateMapIframe(){
-  const iframe=document.getElementById('mapIframe');
-  const noAddr=document.getElementById('mapNoAddr');
-  if(!iframe||!noAddr)return;
-  if(!baseOfficeAddr){
-    iframe.style.display='none';
-    noAddr.style.display='flex';
-    return;
-  }
-  const q=encodeURIComponent(baseOfficeAddr);
-  iframe.src=`https://maps.google.com/maps?q=${q}&output=embed&z=14`;
-  iframe.style.display='block';
-  noAddr.style.display='none';
-}
+// updateMapIframe removed (replaced by Leaflet)
 
 function openBaseInMaps(){
   if(!baseOfficeAddr){showToast('⚠️ 設定画面で拠点住所を入力してください','err');return;}
@@ -1071,7 +1095,6 @@ let curKana='全て';
   document.getElementById('expFrom').value=`${y}-${m}-01`;
   document.getElementById('expTo').value=now.toISOString().split('T')[0];
   updateRouteStats();
-  updateMapIframe();
 })();
 
 function initKanaTabs(){
@@ -1259,7 +1282,12 @@ function openDetailSheet(id){
     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
       <button class="btn btn-primary" style="flex:1;" onclick="closeDetailSheet();openFuelModal(${c.id})">🛢️ 給油記録</button>
       <button class="btn btn-outline" onclick="closeDetailSheet();openCustomerModal(${c.id})">✏️ 編集</button>
-      <button class="btn btn-outline" onclick="openInMapsWithAddr('${encodeURIComponent(c.addr)}','${encodeURIComponent(c.name)}')">📍 地図</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+      <button class="btn btn-outline" style="flex:1;" onclick="startPinSetMode(${c.id})">📍 地図でピンを設定</button>
+      <button class="btn btn-outline" style="flex:1;" onclick="openInMapsWithAddr('${encodeURIComponent(c.addr)}','${encodeURIComponent(c.name)}')">🗺️ マップで開く</button>
+    </div>
+    <div style="margin-top:8px;">
       <button class="btn btn-danger" style="width:100%;" onclick="closeDetailSheet();delCustomer(${c.id})">🗑️ この顧客を削除</button>
     </div>
   `;
