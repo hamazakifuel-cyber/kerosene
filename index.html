@@ -833,7 +833,7 @@ function setKana(k){
 // TABS
 // =================================================================
 function switchTab(t){
-  ['customers','map','route','export'].forEach((x,i)=>{
+  ['customers','map','route','export','settings'].forEach((x,i)=>{
     document.querySelectorAll('.btab')[i].classList.toggle('active',x===t);
     document.getElementById('view-'+x).classList.toggle('active',x===t);
   });
@@ -842,6 +842,7 @@ function switchTab(t){
   if(t==='map')renderMap();
   if(t==='route'){renderRouteList();updateRouteStats();}
   if(t==='export'){updateExpPreview();renderMonthly();renderRank();}
+  if(t==='settings'){renderPriceTierList();}
 }
 
 // =================================================================
@@ -881,7 +882,7 @@ function renderList(){
             ${c.yomi?`<div style="font-size:11px;color:var(--muted);">${c.yomi}</div>`:''}
           </div>
         </div>
-        <div class="citem-meta">${dateStr}&nbsp;&nbsp;${liters}${liters!=='—'?'.0':''}&nbsp;&nbsp;${price}&nbsp;&nbsp;<span style="color:${tierColor};font-size:11px;font-weight:700;">[${tierLabel}:¥${currentPrice}/L]</span></div>
+        <div class="citem-meta">${dateStr}&nbsp;&nbsp;${liters}${liters!=='—'?'.0':''}&nbsp;&nbsp;${price}</div>
         <div class="citem-addr">${c.addr}</div>
         <div class="citem-bottom">
           <div style="display:flex;gap:6px;align-items:center;">
