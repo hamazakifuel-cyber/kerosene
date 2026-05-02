@@ -404,12 +404,45 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
   </div>
 </div>
 
+<!-- ===== SETTINGS VIEW ===== -->
+<div class="view" id="view-settings">
+  <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
+    <div style="font-size:16px;font-weight:900;margin-bottom:4px;">⚙️ 基準単価設定</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">配達の基準となる単価を設定してください。顧客ごとの単価はここから自動計算されます。</div>
+    <div style="background:var(--s1);border-radius:10px;padding:16px;margin-bottom:16px;">
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;">基準単価（円/L）</label>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <input class="fi" id="basePriceInput" type="text" readonly onclick="openNp('basePriceInput','基準単価','円/L')"
+          style="font-size:36px;font-family:'Bebas Neue',sans-serif;color:var(--accent);text-align:center;max-width:180px;">
+        <span style="font-size:14px;color:var(--muted);">円/L</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;" onclick="saveBasePrice()">💾 基準単価を保存</button>
+  </div>
+
+  <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
+    <div style="font-size:16px;font-weight:900;margin-bottom:4px;">💰 単価区分について</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">顧客ごとに以下の区分から選択できます</div>
+    <div id="priceTierList"></div>
+  </div>
+
+  <div style="background:var(--white);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);">
+    <div style="font-size:16px;font-weight:900;margin-bottom:12px;">📋 アプリ情報</div>
+    <div style="font-size:13px;color:var(--muted);line-height:2;">
+      <div>アプリ名：浜崎式 灯油配達管理Pro</div>
+      <div>バージョン：Ver 1.3</div>
+      <div>開発：Claude (Anthropic)</div>
+    </div>
+  </div>
+</div>
+
 <!-- BOTTOM TABS -->
 <div class="bottom-tabs">
   <div class="btab active" onclick="switchTab('customers')"><span class="btab-ic">👥</span><span class="btab-lbl">顧客</span></div>
   <div class="btab" onclick="switchTab('map')"><span class="btab-ic">🗺️</span><span class="btab-lbl">地図</span></div>
   <div class="btab" onclick="switchTab('route')"><span class="btab-ic">🚛</span><span class="btab-lbl">ルート順</span></div>
   <div class="btab" onclick="switchTab('export')"><span class="btab-ic">📊</span><span class="btab-lbl">集計</span></div>
+  <div class="btab" onclick="switchTab('settings')"><span class="btab-ic">⚙️</span><span class="btab-lbl">設定</span></div>
 </div>
 
 <!-- FAB -->
@@ -445,10 +478,21 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <div class="fg"><label class="fl">顧客名</label><input class="fi" id="f_name" placeholder="山田 太郎"></div>
       <div class="fg"><label class="fl">ふりがな（あかさたな検索用）</label><input class="fi" id="f_yomi" placeholder="やまだ たろう" oninput="this.value=this.value.replace(/[ァ-ン]/g,s=>String.fromCharCode(s.charCodeAt(0)-0x60))"></div>
       <div class="fg"><label class="fl">住所</label><input class="fi" id="f_addr" placeholder="〒001-0000 北海道..."></div>
-      <div class="fr">
-        <div class="fg" style="margin:0;"><label class="fl">単価（円/L）</label><input class="fi" id="f_price" placeholder="110" readonly onclick="openNp('f_price','単価','円/L')"></div>
-        <div class="fg" style="margin:0;"><label class="fl">電話番号</label><input class="fi" id="f_tel" placeholder="011-000-0000"></div>
+      <div class="fg">
+        <label class="fl">単価区分</label>
+        <div id="priceTierSelector" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:4px;"></div>
+        <div style="font-size:11px;color:var(--muted);">適用単価：<span id="f_price_display" style="color:var(--accent);font-weight:700;">—</span></div>
+        <input type="hidden" id="f_price" value="">
+        <input type="hidden" id="f_price_tier" value="6">
+        <div id="manualPriceWrap" style="display:none;margin-top:8px;">
+          <label class="fl">手動単価（円/L）</label>
+          <input class="fi" id="f_manual_price" type="text" placeholder="単価を入力" readonly
+            onclick="openNp('f_manual_price','手動単価','円/L')"
+            oninput="document.getElementById('f_price').value=this.value;updatePriceDisplay(parseInt(document.getElementById('f_price_tier').value),parseInt(this.value));"
+            style="font-size:22px;font-family:'Bebas Neue',sans-serif;color:var(--yellow);text-align:center;">
+        </div>
       </div>
+      <div class="fg" style="margin:0;"><label class="fl">電話番号</label><input class="fi" id="f_tel" placeholder="011-000-0000"></div>
       <div class="fg"><label class="fl">メモ</label><textarea class="fi" id="f_memo" rows="3" placeholder="給油口の場所・注意事項など" style="resize:none;"></textarea></div>
       <div class="fr">
         <div class="fg" style="margin:0;"><label class="fl">地図X（%）</label><input class="fi" id="f_mx" type="number" min="5" max="95" placeholder="50"></div>
@@ -574,6 +618,120 @@ let FH=JSON.parse(localStorage.getItem('v4_f')||'null');
 let MH=JSON.parse(localStorage.getItem('v4_m')||'null');
 
 function dAgo(n){const d=new Date();d.setDate(d.getDate()-n);return d.toISOString().split('T')[0];}
+
+// =================================================================
+// BASE PRICE SYSTEM
+// =================================================================
+const PRICE_TIERS=[
+  {label:'10円高',diff:+10,special:null},
+  {label:'6円高',diff:+6,special:null},
+  {label:'5円高',diff:+5,special:null},
+  {label:'3円高',diff:+3,special:null},
+  {label:'2円高',diff:+2,special:null},
+  {label:'1円高',diff:+1,special:null},
+  {label:'基本',diff:0,special:null},
+  {label:'1円安',diff:-1,special:null},
+  {label:'2円安',diff:-2,special:null},
+  {label:'3円安',diff:-3,special:null},
+  {label:'5円安',diff:-5,special:null},
+  {label:'10円安',diff:-10,special:null},
+  {label:'手動入力',diff:0,special:'manual'},
+  {label:'¥0（無料）',diff:0,special:'zero'},
+];
+let basePrice=parseInt(localStorage.getItem('v4_basePrice')||'145');
+
+function getPrice(tier,manualPrice){
+  const t=PRICE_TIERS[tier]||PRICE_TIERS[6];
+  if(t.special==='zero')return 0;
+  if(t.special==='manual')return manualPrice||basePrice;
+  return basePrice+t.diff;
+}
+
+function saveBasePrice(){
+  const val=parseInt(document.getElementById('basePriceInput').value)||0;
+  if(val<50||val>500){showToast('⚠️ 単価は50〜500円で入力してください','err');return;}
+  basePrice=val;
+  localStorage.setItem('v4_basePrice',basePrice);
+  // Update all customers with tier
+  C.forEach(c=>{
+    if(c.priceTier!==undefined){c.price=getPrice(c.priceTier);}
+  });
+  save();
+  renderList();
+  renderPriceTierList();
+  renderPriceTierSelector();
+  showToast('✅ 基準単価を'+basePrice+'円に設定しました','ok');
+}
+
+function renderPriceTierList(){
+  const el=document.getElementById('priceTierList');
+  if(!el)return;
+  el.innerHTML=PRICE_TIERS.map((t,i)=>{
+    const isHigh=t.diff>0;
+    const isLow=t.diff<0;
+    const color=isHigh?'var(--red)':isLow?'var(--green)':'var(--accent)';
+    const price=basePrice+t.diff;
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--s1);border-radius:8px;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${color};"></div>
+        <div style="font-size:14px;font-weight:700;">${t.label}</div>
+      </div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${color};">¥${price}/L</div>
+    </div>`;
+  }).join('');
+  document.getElementById('basePriceInput').value=basePrice;
+}
+
+function renderPriceTierSelector(selectedTier=0){
+  const el=document.getElementById('priceTierSelector');
+  if(!el)return;
+  el.style.gridTemplateColumns='repeat(4,1fr)';
+  el.style.gap='5px';
+  el.innerHTML=PRICE_TIERS.map((t,i)=>{
+    const isSel=i===selectedTier;
+    const isHigh=t.diff>0;
+    const isLow=t.diff<0;
+    let color=isHigh?'var(--red)':isLow?'var(--green)':'var(--accent)';
+    if(t.special==='manual')color='var(--yellow)';
+    if(t.special==='zero')color='var(--muted)';
+    const bg=isSel?(t.special==='manual'?'rgba(245,158,11,.12)':t.special==='zero'?'rgba(138,149,163,.12)':isHigh?'rgba(239,68,68,.12)':isLow?'rgba(34,197,94,.12)':'rgba(33,150,243,.12)'):'var(--s1)';
+    const border=isSel?color:'var(--border)';
+    let subLabel=t.special==='zero'?'¥0':t.special==='manual'?'入力':('¥'+(basePrice+t.diff));
+    return`<div onclick="selectPriceTier(${i})" id="tier_btn_${i}"
+      style="padding:8px 4px;border:2px solid ${border};border-radius:8px;text-align:center;cursor:pointer;background:${bg};transition:all .15s;">
+      <div style="font-size:10px;font-weight:700;color:${color};line-height:1.3;">${t.label}</div>
+      <div style="font-size:10px;color:var(--muted);">${subLabel}</div>
+    </div>`;
+  }).join('');
+  updatePriceDisplay(selectedTier);
+}
+
+function selectPriceTier(idx){
+  document.getElementById('f_price_tier').value=idx;
+  const t=PRICE_TIERS[idx];
+  const manualWrap=document.getElementById('manualPriceWrap');
+  if(t&&t.special==='manual'){
+    if(manualWrap)manualWrap.style.display='block';
+    const mp=parseInt(document.getElementById('f_manual_price').value)||basePrice;
+    document.getElementById('f_price').value=mp;
+    updatePriceDisplay(idx,mp);
+  } else {
+    if(manualWrap)manualWrap.style.display='none';
+    const price=t&&t.special==='zero'?0:getPrice(idx);
+    document.getElementById('f_price').value=price;
+    renderPriceTierSelector(idx);
+    updatePriceDisplay(idx,price);
+  }
+}
+
+function updatePriceDisplay(idx,overridePrice){
+  const el=document.getElementById('f_price_display');
+  if(!el)return;
+  const t=PRICE_TIERS[idx];
+  if(t&&t.special==='zero'){el.textContent='¥0（無料）';return;}
+  if(t&&t.special==='manual'){el.textContent=overridePrice!==undefined?'¥'+overridePrice+'/L（手動）':'手動入力';return;}
+  el.textContent='¥'+(overridePrice!==undefined?overridePrice:getPrice(idx))+'/L';
+}
 
 if(!C){
   C=[
@@ -1198,7 +1356,10 @@ function addInterrupt(){
 function openCustomerModal(id=null){
   editId=id;curType='home';
   document.getElementById('custModalTitle').textContent=id?'顧客を編集':'顧客を追加';
-  ['f_name','f_yomi','f_addr','f_price','f_tel','f_memo','f_mx','f_my'].forEach(x=>document.getElementById(x).value='');
+  ['f_name','f_yomi','f_addr','f_price','f_tel','f_memo','f_mx','f_my','f_manual_price'].forEach(x=>{const el=document.getElementById(x);if(el)el.value='';});
+  const mwReset=document.getElementById('manualPriceWrap');if(mwReset)mwReset.style.display='none';
+  document.getElementById('f_price_tier').value=6;
+  renderPriceTierSelector(6);
   document.querySelectorAll('.type-opt').forEach(b=>b.classList.remove('sel'));
   document.querySelector('[data-type="home"]').classList.add('sel');
   if(id){
@@ -1213,6 +1374,15 @@ function openCustomerModal(id=null){
       document.getElementById('f_memo').value=c.memo||'';
       document.getElementById('f_mx').value=c.mx||50;
       document.getElementById('f_my').value=c.my||50;
+      const tier=c.priceTier!==undefined?c.priceTier:6;
+      document.getElementById('f_price_tier').value=tier;
+      renderPriceTierSelector(tier);
+      const tObj=PRICE_TIERS[tier];
+      if(tObj&&tObj.special==='manual'){
+        const mw=document.getElementById('manualPriceWrap');
+        if(mw)mw.style.display='block';
+        document.getElementById('f_manual_price').value=c.price||basePrice;
+      }
       document.querySelector(`[data-type="${c.type}"]`).classList.add('sel');
     }
   }
