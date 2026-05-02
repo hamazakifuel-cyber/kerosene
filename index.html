@@ -645,7 +645,7 @@ function setKana(k){
 // =================================================================
 // TABS
 // =================================================================
-function switchTab(t){hideToast();
+function switchTab(t){
   ['customers','map','route','export'].forEach((x,i)=>{
     document.querySelectorAll('.btab')[i].classList.toggle('active',x===t);
     document.getElementById('view-'+x).classList.toggle('active',x===t);
