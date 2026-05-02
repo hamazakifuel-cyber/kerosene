@@ -408,11 +408,11 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">地図の中心となる営業所・拠点の住所を入力してください。</div>
     <div class="fg">
       <label class="fl">拠点名</label>
-      <input class="fi" id="baseOfficeName" placeholder="例：浜崎燃料店">
+      <input class="fi" id="baseOfficeName" placeholder="会社">
     </div>
     <div class="fg">
       <label class="fl">住所</label>
-      <input class="fi" id="baseOfficeAddr" placeholder="例：北海道札幌市北区新琴似7条14丁目">
+      <input class="fi" id="baseOfficeAddr" placeholder="">
     </div>
     <button class="btn btn-primary" style="width:100%;margin-bottom:0;" onclick="saveBaseOffice()">💾 拠点住所を保存</button>
   </div>
@@ -435,6 +435,20 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
     <div style="font-size:16px;font-weight:900;margin-bottom:4px;">💰 単価区分について</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">顧客ごとに以下の区分から選択できます</div>
     <div id="priceTierList"></div>
+  </div>
+
+  <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
+    <div style="font-size:16px;font-weight:900;margin-bottom:4px;">💾 データバックアップ</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">顧客データ・給油履歴・メンテ記録を一括でバックアップ・復元できます。誤削除の際はバックアップから復元してください。</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="btn btn-success" style="width:100%;" onclick="backupData()">📤 バックアップを書き出す（JSONファイル）</button>
+      <label class="btn btn-outline" style="width:100%;cursor:pointer;justify-content:center;">
+        📥 バックアップから復元する
+        <input type="file" accept=".json" style="display:none;" onchange="restoreData(this)">
+      </label>
+      <button class="btn btn-outline" style="width:100%;color:var(--red);border-color:var(--red);" onclick="resetAllData()">⚠️ 全データをリセット（初期化）</button>
+    </div>
+    <div id="backupStatus" style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center;"></div>
   </div>
 
   <div style="background:var(--white);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);">
@@ -1242,10 +1256,11 @@ function openDetailSheet(id){
         </label>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:8px;">
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
       <button class="btn btn-primary" style="flex:1;" onclick="closeDetailSheet();openFuelModal(${c.id})">🛢️ 給油記録</button>
       <button class="btn btn-outline" onclick="closeDetailSheet();openCustomerModal(${c.id})">✏️ 編集</button>
       <button class="btn btn-outline" onclick="openInMapsWithAddr('${encodeURIComponent(c.addr)}','${encodeURIComponent(c.name)}')">📍 地図</button>
+      <button class="btn btn-danger" style="width:100%;" onclick="closeDetailSheet();delCustomer(${c.id})">🗑️ この顧客を削除</button>
     </div>
   `;
   document.getElementById('detailSheet').classList.add('open');
@@ -1786,6 +1801,85 @@ function renderRank(){
     const pct=Math.round(v.t/maxT*100);
     return`<div class="bar-row"><div class="bar-label" style="width:60px;font-size:11px;">${medal[i]||''}${c.name.split(' ')[0]}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:linear-gradient(90deg,#d97706,var(--yellow));"><span class="bar-val">¥${Math.round(v.t/1000)}k</span></div></div></div>`;
   }).join('')}</div>`;
+}
+
+// =================================================================
+// BACKUP & RESTORE
+// =================================================================
+function backupData(){
+  const now=new Date();
+  const dateStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  const timeStr=String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0');
+  const backup={
+    version:'1.3',
+    exportedAt:now.toISOString(),
+    basePrice:basePrice,
+    baseOfficeName:baseOfficeName,
+    baseOfficeAddr:baseOfficeAddr,
+    customers:C,
+    fuelHistory:FH,
+    maintHistory:MH
+  };
+  const json=JSON.stringify(backup,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='浜崎式配達Pro_バックアップ_'+dateStr+'_'+timeStr+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  const el=document.getElementById('backupStatus');
+  if(el)el.textContent='✅ バックアップを書き出しました（'+dateStr+' '+timeStr+'）';
+  showToast('✅ バックアップを書き出しました','ok');
+}
+
+function restoreData(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!data.customers||!data.fuelHistory){
+        showToast('⚠️ 無効なバックアップファイルです','err');
+        return;
+      }
+      if(!confirm('バックアップから復元しますか？\n現在のデータは上書きされます。\n\n作成日時：'+(data.exportedAt||'不明'))){
+        input.value='';
+        return;
+      }
+      C=data.customers||[];
+      FH=data.fuelHistory||[];
+      MH=data.maintHistory||[];
+      if(data.basePrice)basePrice=data.basePrice;
+      if(data.baseOfficeName)baseOfficeName=data.baseOfficeName;
+      if(data.baseOfficeAddr)baseOfficeAddr=data.baseOfficeAddr;
+      save();
+      localStorage.setItem('v4_basePrice',basePrice);
+      localStorage.setItem('v4_officeName',baseOfficeName);
+      localStorage.setItem('v4_officeAddr',baseOfficeAddr);
+      renderList();
+      const el=document.getElementById('backupStatus');
+      if(el)el.textContent='✅ 復元完了（'+C.length+'件の顧客、'+FH.length+'件の給油記録）';
+      showToast('✅ バックアップから復元しました（'+C.length+'件）','ok');
+      input.value='';
+    }catch(err){
+      showToast('⚠️ ファイルの読み込みに失敗しました','err');
+      console.error(err);
+    }
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+function resetAllData(){
+  if(!confirm('⚠️ 全データを初期化しますか？\nこの操作は取り消せません。\n\nバックアップを取ってから実行することを強くお勧めします。'))return;
+  if(!confirm('本当に削除しますか？\n顧客データ・給油履歴・全記録が消えます。'))return;
+  C=[];FH=[];MH=[];
+  save();
+  renderList();
+  const el=document.getElementById('backupStatus');
+  if(el)el.textContent='🗑️ 全データをリセットしました';
+  showToast('🗑️ 全データをリセットしました');
 }
 
 // =================================================================
