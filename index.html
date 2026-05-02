@@ -1254,8 +1254,6 @@ function renderRank(){
 // TOAST
 // =================================================================
 let toastTimer=null;
-function hideToast(){const t=document.getElementById('toast');if(toastTimer)clearTimeout(toastTimer);t.classList.remove('show');}
-let toastTimer=null;
 function showToast(msg,type=''){
   const t=document.getElementById('toast');
   if(toastTimer){clearTimeout(toastTimer);toastTimer=null;}
