@@ -895,23 +895,11 @@ function renderMap(){
 }
 
 function openInMaps(){
-  // Appleマップ：配達順をそのまま反映
   const stops=routeOrder.filter(c=>!completedIds.has(c.id));
-  if(!stops.length){showToast('⚠️ ルートに配達先がありません','err');return;}
-  if(stops.length===1){
-    // 1件のみ
-    window.open(`maps://?daddr=${encodeURIComponent(stops[0].addr)}&dirflg=d`,'_blank');
-    showToast(`🗺️ Appleマップで${stops[0].name}へのルートを開きます`,'ok');
-    return;
-  }
-  // 複数件：Appleマップはwaypointに対応していないため
-  // 全住所をテキストでコピーしてユーザーに案内
-  const addrList=stops.map((c,i)=>`${i+1}. ${c.name}：${c.addr}`).join('
-');
+  if(!stops.length){showToast('ルートに配達先がありません','err');return;}
   const dest=encodeURIComponent(stops[stops.length-1].addr);
-  // まず最終目的地でマップを開く
-  window.open(`maps://?daddr=${dest}&dirflg=d`,'_blank');
-  showToast(`🗺️ Appleマップを開きました（${stops.length}件）`,'ok');
+  window.open('maps://?daddr='+dest+'&dirflg=d','_blank');
+  showToast('Appleマップを開きました','ok');
 }
 function openInGoogleMaps(){
   // Googleマップ：配達順を完全反映（最大10件の経由地）
