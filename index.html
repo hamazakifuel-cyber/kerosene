@@ -300,6 +300,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
     <div style="display:flex;gap:8px;padding:10px;">
       <button class="btn btn-primary btn-sm" style="flex:1;" onclick="openInGoogleMaps()">📍 Googleマップでルートを開く</button>
       <button class="btn btn-outline btn-sm" onclick="locateMe()">📡 現在地</button>
+      <button class="btn btn-outline btn-sm" onclick="resetAndGeocode()">🔄 ピン再表示</button>
     </div>
   </div>
   <!-- 凡例 -->
@@ -693,13 +694,26 @@ function updateLeafletPins(){
   if(!map)return;
   // 既存顧客ピンをクリア
   map.eachLayer(l=>{if(l._isCustomerPin)l.remove();});
-  // lat/lngがある顧客はすぐ表示
+  // まず保存済みlat/lngで表示、なければジオコード
+  const noCoord=[];
   C.forEach(c=>{
-    if(c.lat&&c.lng)addCustomerPin(c,map);
+    if(c.lat&&c.lng){
+      addCustomerPin(c,map);
+    } else {
+      noCoord.push(c);
+    }
   });
-  // lat/lngがない顧客は1件ずつ順番にジオコード（Nominatim制限対策）
-  const noCoord=C.filter(c=>!c.lat||!c.lng);
-  geocodeSequential(noCoord,0,map);
+  if(noCoord.length>0){
+    geocodeSequential(noCoord,0,map);
+  }
+}
+
+function resetAndGeocode(){
+  // 全顧客のlat/lngをリセットしてジオコードしなおす
+  C.forEach(c=>{c.lat=undefined;c.lng=undefined;});
+  save();
+  updateLeafletPins();
+  showToast('📍 位置情報を再取得中...','ok');
 }
 
 function geocodeSequential(list,idx,map){
@@ -796,6 +810,27 @@ function locateMe(){
 // DATA
 // =================================================================
 let C=JSON.parse(localStorage.getItem('v4_c')||'null');
+// サンプル座標データ（LocalStorageのデータにlat/lngがない場合に使用）
+const SAMPLE_COORDS={
+  1:{lat:43.1012,lng:141.3456},
+  2:{lat:43.0998,lng:141.3478},
+  3:{lat:43.0876,lng:141.3312},
+  4:{lat:43.0945,lng:141.3523},
+  5:{lat:43.1034,lng:141.3489},
+  6:{lat:43.1056,lng:141.3501},
+  7:{lat:43.0823,lng:141.3267},
+  8:{lat:43.1156,lng:141.5412},
+};
+// LocalStorageにlat/lngがない顧客にサンプル座標を補完
+if(C){
+  C.forEach(c=>{
+    if((!c.lat||!c.lng)&&SAMPLE_COORDS[c.id]){
+      c.lat=SAMPLE_COORDS[c.id].lat;
+      c.lng=SAMPLE_COORDS[c.id].lng;
+    }
+  });
+  localStorage.setItem('v4_c',JSON.stringify(C));
+}
 let FH=JSON.parse(localStorage.getItem('v4_f')||'null');
 let MH=JSON.parse(localStorage.getItem('v4_m')||'null');
 
