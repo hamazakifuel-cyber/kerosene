@@ -660,29 +660,25 @@ let _baseMarker=null;
 function initLeafletMap(){
   const container=document.getElementById('leafletMap');
   if(!container)return;
-  // デフォルト中心：札幌
-  let lat=43.0618;
-  let lng=141.3545;
-  // 拠点住所がある場合はジオコーディング
   if(window._leafletMap){
     window._leafletMap.remove();
     window._leafletMap=null;
   }
-  // 拠点住所がなければ新琴似エリアをデフォルト表示
-  const defaultLat=baseOfficeAddr?lat:43.108;
-  const defaultLng=baseOfficeAddr?lng:141.341;
+  // デフォルト中心（札幌）で先に地図を作成
   const map=L.map('leafletMap',{
-    center:[defaultLat,defaultLng],
-    zoom:14,
+    center:[43.108,141.341],
+    zoom:13,
     zoomControl:true
   });
   window._leafletMap=map;
+
   // OpenStreetMapタイル
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap contributors',
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom:19
   }).addTo(map);
-  // 地図上での顧客位置修正モード
+
+  // 地図クリック：ピン設定モード
   map.on('click',function(e){
     if(!window._mapEditMode)return;
     const c=window._mapEditCustomer;
@@ -694,16 +690,16 @@ function initLeafletMap(){
     window._mapEditMode=false;
     window._mapEditCustomer=null;
     map.getContainer().style.cursor='';
-    // バナー非表示
     const banner=document.getElementById('pinSetBanner');
     if(banner)banner.style.display='none';
     showToast('✅ '+c.name+'さんのピンを保存しました','ok');
   });
-  // 拠点ピン（住所があればジオコード、なければ地図中心に配置）
+
+  // 拠点マーカー：住所があればジオコーディングして移動
   if(baseOfficeAddr){
     geocodeAndAddBase(map);
   } else {
-    // 拠点未設定でもデフォルト位置に仮マーカー
+    // 拠点未設定：デフォルト位置に仮マーカー
     const icon=L.divIcon({
       html:'<div style="background:#666;border:3px solid white;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 3px 12px rgba(0,0,0,.5);">🏯</div>',
       className:'',iconSize:[44,44],iconAnchor:[22,22]
@@ -712,12 +708,13 @@ function initLeafletMap(){
       .addTo(map)
       .bindPopup('<b>🏯 拠点未設定</b><br>設定画面で住所を入力してください');
   }
-  // 顧客ピン
-  updateLeafletPins();
-  // GPS
-  locateMe();
-}
 
+  // GPS取得
+  locateMe();
+
+  // 顧客ピン
+  setTimeout(function(){updateLeafletPins();},500);
+}
 function addBaseMarker(map,lat,lng){
   if(_baseMarker)_baseMarker.remove();
   const icon=L.divIcon({
@@ -734,23 +731,21 @@ function addBaseMarker(map,lat,lng){
 
 function geocodeAndAddBase(map){
   const q=encodeURIComponent(baseOfficeAddr);
-  fetch('https://nominatim.openstreetmap.org/search?format=json&q='+q+'&limit=1&accept-language=ja')
-    .then(r=>r.json())
-    .then(data=>{
+  showToast('🏯 拠点住所を検索中...');
+  fetch('https://nominatim.openstreetmap.org/search?format=json&q='+q+'&limit=1&accept-language=ja&countrycodes=jp')
+    .then(function(r){return r.json();})
+    .then(function(data){
       if(!data||!data[0]){
-        const c=map.getCenter();
-        addBaseMarker(map,c.lat,c.lng);
-        showToast('📍 拠点を地図中心に配置（住所変換失敗）');
+        showToast('⚠️ 拠点住所が見つかりませんでした','err');
         return;
       }
       const lat=parseFloat(data[0].lat);
       const lng=parseFloat(data[0].lon);
       addBaseMarker(map,lat,lng);
+      showToast('✅ 拠点を地図に表示しました','ok');
     })
-    .catch(()=>{
-      const c=map.getCenter();
-      addBaseMarker(map,c.lat,c.lng);
-      showToast('📍 拠点を地図中心に配置しました');
+    .catch(function(){
+      showToast('⚠️ 拠点住所の検索に失敗しました','err');
     });
 }
 // 顧客ピン更新
