@@ -646,6 +646,11 @@ function getPrice(tier,manualPrice){
   if(t.special==='manual')return manualPrice||basePrice;
   return basePrice+t.diff;
 }
+// 顧客の現在の単価を常にbasePriceから計算して返す
+function calcCustomerPrice(c){
+  if(c.priceTier===undefined)return c.price||basePrice;
+  return getPrice(c.priceTier, c.manualPrice);
+}
 
 function saveBasePrice(){
   const val=parseInt(document.getElementById('basePriceInput').value)||0;
@@ -735,14 +740,14 @@ function updatePriceDisplay(idx,overridePrice){
 
 if(!C){
   C=[
-    {id:1,name:'上田 くるみ',yomi:'うえだ くるみ',addr:'〒001-0907 北海道札幌市北区新琴似7条14丁目6-3',type:'home',price:150,tel:'011-111-1111',memo:'給油口：玄関左側\nポリ缶あり',lastDate:dAgo(3),mx:35,my:25,photos:[]},
-    {id:2,name:'福士 眞知子',yomi:'ふくし まちこ',addr:'〒001-0906 北海道札幌市北区新琴似6条13丁目3-29',type:'home',price:145,tel:'011-222-2222',memo:'屋外タンク',lastDate:dAgo(11),mx:58,my:40,photos:[]},
-    {id:3,name:'北のさくら',yomi:'きたのさくら',addr:'〒001-0035 北海道札幌市北区北35条西5丁目1-15',type:'business',price:145,tel:'011-333-3333',memo:'①490L 1番奥 店舗裏\n②90Lとポリ缶 店舗内\n(※屋内にあるのでストーブ電源切ってもらう)\n電話注文／振込\n北新',lastDate:dAgo(19),mx:22,my:62,photos:[]},
-    {id:4,name:'斉藤 和彦',yomi:'さいとう かずひこ',addr:'〒001-0904 北海道札幌市北区新琴似4条4丁目4-7',type:'home',price:147,tel:'011-444-4444',memo:'',lastDate:dAgo(26),mx:70,my:35,photos:[]},
-    {id:5,name:'定免 忠郎',yomi:'さだめん ただお',addr:'〒001-0910 北海道札幌市北区新琴似10条11丁目2-16',type:'home',price:145,tel:'011-555-5555',memo:'',lastDate:dAgo(7),mx:45,my:72,photos:[]},
-    {id:6,name:'笹木 幸一',yomi:'ささき こういち',addr:'〒001-0911 北海道札幌市北区新琴似11条16丁目7-2',type:'home',price:145,tel:'011-666-6666',memo:'',lastDate:dAgo(14),mx:62,my:55,photos:[]},
-    {id:7,name:'ホクト造園',yomi:'ほくとぞうえん',addr:'〒001-0004 北海道札幌市北区新川西4条2丁目',type:'industry',price:145,tel:'011-777-7777',memo:'大型タンク 要事前連絡',lastDate:dAgo(30),mx:82,my:30,photos:[]},
-    {id:8,name:'田中商事',yomi:'たなかしょうじ',addr:'北海道江別市8-8',type:'business',price:140,tel:'0123-88-8888',memo:'',lastDate:dAgo(5),mx:40,my:20,photos:[]},
+    {id:1,name:'上田 くるみ',yomi:'うえだ くるみ',addr:'〒001-0907 北海道札幌市北区新琴似7条14丁目6-3',type:'home',price:150,priceTier:12,tel:'011-111-1111',memo:'給油口：玄関左側\nポリ缶あり',lastDate:dAgo(3),mx:35,my:25,photos:[]},
+    {id:2,name:'福士 眞知子',yomi:'ふくし まちこ',addr:'〒001-0906 北海道札幌市北区新琴似6条13丁目3-29',type:'home',price:145,priceTier:6,tel:'011-222-2222',memo:'屋外タンク',lastDate:dAgo(11),mx:58,my:40,photos:[]},
+    {id:3,name:'北のさくら',yomi:'きたのさくら',addr:'〒001-0035 北海道札幌市北区北35条西5丁目1-15',type:'business',price:145,priceTier:6,tel:'011-333-3333',memo:'①490L 1番奥 店舗裏\n②90Lとポリ缶 店舗内\n(※屋内にあるのでストーブ電源切ってもらう)\n電話注文／振込\n北新',lastDate:dAgo(19),mx:22,my:62,photos:[]},
+    {id:4,name:'斉藤 和彦',yomi:'さいとう かずひこ',addr:'〒001-0904 北海道札幌市北区新琴似4条4丁目4-7',type:'home',price:147,priceTier:4,tel:'011-444-4444',memo:'',lastDate:dAgo(26),mx:70,my:35,photos:[]},
+    {id:5,name:'定免 忠郎',yomi:'さだめん ただお',addr:'〒001-0910 北海道札幌市北区新琴似10条11丁目2-16',type:'home',price:145,priceTier:6,tel:'011-555-5555',memo:'',lastDate:dAgo(7),mx:45,my:72,photos:[]},
+    {id:6,name:'笹木 幸一',yomi:'ささき こういち',addr:'〒001-0911 北海道札幌市北区新琴似11条16丁目7-2',type:'home',price:145,priceTier:6,tel:'011-666-6666',memo:'',lastDate:dAgo(14),mx:62,my:55,photos:[]},
+    {id:7,name:'ホクト造園',yomi:'ほくとぞうえん',addr:'〒001-0004 北海道札幌市北区新川西4条2丁目',type:'industry',price:145,priceTier:6,tel:'011-777-7777',memo:'大型タンク 要事前連絡',lastDate:dAgo(30),mx:82,my:30,photos:[]},
+    {id:8,name:'田中商事',yomi:'たなかしょうじ',addr:'北海道江別市8-8',type:'business',price:140,priceTier:9,tel:'0123-88-8888',memo:'',lastDate:dAgo(5),mx:40,my:20,photos:[]},
   ];
   FH=[
     {id:1,cid:1,date:dAgo(3),liter:95,price:150,note:''},
@@ -859,7 +864,12 @@ function renderList(){
       ?`<img src="${c.photos[0]}" alt="">`
       :`<span style="font-size:32px;">${c.type==='home'?'🏠':c.type==='business'?'🏢':'🏭'}</span>`;
     const liters=lf?lf.liter:'—';
-    const price=lf?`@${lf.price}`:'';
+    const tierIdx=c.priceTier!==undefined?c.priceTier:6;
+    const tierObj=PRICE_TIERS[tierIdx];
+    const tierLabel=tierObj?tierObj.label:'基本';
+    const tierColor=tierObj&&tierObj.diff>0?'var(--red)':tierObj&&tierObj.diff<0?'var(--green)':tierObj&&tierObj.special==='zero'?'var(--muted)':tierObj&&tierObj.special==='manual'?'var(--yellow)':'var(--accent)';
+    const currentPrice=calcCustomerPrice(c);
+    const price=lf?`@${lf.price}`:'';;
     const dateStr=lf?formatDate(lf.date):'未記録';
     return`<div class="citem" onclick="openDetailSheet(${c.id})">
       <div class="citem-thumb">${thumbHtml}</div>
@@ -871,7 +881,7 @@ function renderList(){
             ${c.yomi?`<div style="font-size:11px;color:var(--muted);">${c.yomi}</div>`:''}
           </div>
         </div>
-        <div class="citem-meta">${dateStr}&nbsp;&nbsp;${liters}${liters!=='—'?'.0':''}&nbsp;&nbsp;${price}</div>
+        <div class="citem-meta">${dateStr}&nbsp;&nbsp;${liters}${liters!=='—'?'.0':''}&nbsp;&nbsp;${price}&nbsp;&nbsp;<span style="color:${tierColor};font-size:11px;font-weight:700;">[${tierLabel}:¥${currentPrice}/L]</span></div>
         <div class="citem-addr">${c.addr}</div>
         <div class="citem-bottom">
           <div style="display:flex;gap:6px;align-items:center;">
@@ -927,7 +937,10 @@ function openDetailSheet(id){
       <div class="ds-title">基本情報</div>
       <div class="info-grid">
         <div class="info-item"><div class="info-lbl">客種</div><div class="info-val">${typeShape(c.type)} ${typeName(c.type)}</div></div>
-        <div class="info-item"><div class="info-lbl">単価</div><div class="info-val" style="color:var(--accent);">¥${c.price}/L</div></div>
+        <div class="info-item"><div class="info-lbl">単価</div>
+          <div class="info-val" style="color:var(--accent);">¥${calcCustomerPrice(c)}/L</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">${(()=>{const t=PRICE_TIERS[c.priceTier!==undefined?c.priceTier:6];return t?t.label:'基本';})()}</div>
+        </div>
         <div class="info-item" style="grid-column:span 2;"><div class="info-lbl">住所</div><div class="info-val" style="font-size:12px;line-height:1.5;">${c.addr}</div></div>
         <div class="info-item"><div class="info-lbl">電話</div><div class="info-val" style="font-size:13px;">${c.tel||'—'}</div></div>
         <div class="info-item"><div class="info-lbl">最終給油</div><div class="info-val" style="font-size:13px;">${c.lastDate||'未記録'}</div></div>
@@ -1155,7 +1168,7 @@ function renderRouteList(){
         <div class="route-tags">
           ${statusTag(d)}
           <span class="tag tag-m">${typeShape(c.type)} ${typeName(c.type)}</span>
-          <span class="tag tag-b">¥${c.price}/L</span>
+          <span class="tag tag-b">¥${calcCustomerPrice(c)}/L</span>
           ${isInt?'<span class="tag tag-o">割込み</span>':''}
         </div>
       </div>
@@ -1416,7 +1429,7 @@ function openFuelModal(id){
   const c=C.find(x=>x.id===id);
   document.getElementById('fm-name').textContent=c.name;
   document.getElementById('fm-addr').textContent=c.addr;
-  document.getElementById('fm-price').textContent=`単価 ¥${c.price}/L`;
+  document.getElementById('fm-price').textContent=`単価 ¥${calcCustomerPrice(c)}/L`;
   document.getElementById('f_liter').value='';
   document.getElementById('f_fnote').value='';
   document.getElementById('fm-total').textContent='¥ 0';
@@ -1429,7 +1442,7 @@ function saveFuel(){
   if(liter<=0){showToast('⚠️ 給油量を入力してください','err');return;}
   const c=C.find(x=>x.id===fuelTargetId);
   const today=new Date().toISOString().split('T')[0];
-  FH.push({id:Date.now(),cid:fuelTargetId,date:today,liter,price:c.price,note:document.getElementById('f_fnote').value});
+  FH.push({id:Date.now(),cid:fuelTargetId,date:today,liter,price:calcCustomerPrice(c),note:document.getElementById('f_fnote').value});
   c.lastDate=today;
   completedIds.add(fuelTargetId);
   save();closeFuelModal();renderList();renderRouteList();updateRouteStats();renderMap();
@@ -1453,7 +1466,7 @@ function nk(k){
   document.getElementById('np-val').textContent=npBuf||'0';
   if(npTarget==='f_liter'){
     const c=C.find(x=>x.id===fuelTargetId);
-    if(c)document.getElementById('fm-total').textContent=`¥ ${((parseFloat(npBuf)||0)*c.price).toLocaleString()}`;
+    if(c)document.getElementById('fm-total').textContent=`¥ ${((parseFloat(npBuf)||0)*calcCustomerPrice(c)).toLocaleString()}`;
   }
 }
 function confirmNp(){if(npTarget)document.getElementById(npTarget).value=npBuf||'0';closeNp();}
