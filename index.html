@@ -673,9 +673,18 @@ function initLeafletMap(){
     map.getContainer().style.cursor='';
     showToast('✅ '+c.name+'の位置を設定しました','ok');
   });
-  // 拠点ピン（住所があればジオコード）
+  // 拠点ピン（住所があればジオコード、なければ地図中心に配置）
   if(baseOfficeAddr){
     geocodeAndAddBase(map);
+  } else {
+    // 拠点未設定でもデフォルト位置に仮マーカー
+    const icon=L.divIcon({
+      html:'<div style="background:#666;border:3px solid white;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 3px 12px rgba(0,0,0,.5);">🏯</div>',
+      className:'',iconSize:[44,44],iconAnchor:[22,22]
+    });
+    _baseMarker=L.marker([43.108,141.341],{icon:icon,zIndexOffset:1000})
+      .addTo(map)
+      .bindPopup('<b>🏯 拠点未設定</b><br>設定画面で住所を入力してください');
   }
   // 顧客ピン
   updateLeafletPins();
@@ -683,86 +692,40 @@ function initLeafletMap(){
   locateMe();
 }
 
+function addBaseMarker(map,lat,lng){
+  if(_baseMarker)_baseMarker.remove();
+  const icon=L.divIcon({
+    html:'<div style="background:#1565c0;border:3px solid white;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 3px 12px rgba(0,0,0,.5);">🏯</div>',
+    className:'',
+    iconSize:[44,44],
+    iconAnchor:[22,22]
+  });
+  _baseMarker=L.marker([lat,lng],{icon:icon,zIndexOffset:1000})
+    .addTo(map)
+    .bindPopup('<b>🏯 '+(baseOfficeName||'拠点')+'</b><br>'+baseOfficeAddr);
+  map.setView([lat,lng],14);
+}
+
 function geocodeAndAddBase(map){
   const q=encodeURIComponent(baseOfficeAddr);
-  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`)
+  fetch('https://nominatim.openstreetmap.org/search?format=json&q='+q+'&limit=1&accept-language=ja')
     .then(r=>r.json())
     .then(data=>{
-      if(!data||!data[0])return;
+      if(!data||!data[0]){
+        const c=map.getCenter();
+        addBaseMarker(map,c.lat,c.lng);
+        showToast('📍 拠点を地図中心に配置（住所変換失敗）');
+        return;
+      }
       const lat=parseFloat(data[0].lat);
       const lng=parseFloat(data[0].lon);
-      if(_baseMarker)_baseMarker.remove();
-      const icon=L.divIcon({
-        html:`<div style="font-size:28px;line-height:1;">🏠</div>`,
-        className:'',
-        iconSize:[32,32],
-        iconAnchor:[16,32]
-      });
-      _baseMarker=L.marker([lat,lng],{icon:icon})
-        .addTo(map)
-        .bindPopup(`<b>${baseOfficeName||'拠点'}</b><br>${baseOfficeAddr}`);
-      map.setView([lat,lng],13);
+      addBaseMarker(map,lat,lng);
     })
-    .catch(e=>console.log('Geocode error:',e));
-}
-
-function updateLeafletPins(){
-  const map=window._leafletMap;
-  if(!map)return;
-  // 既存顧客ピンをクリア
-  map.eachLayer(l=>{if(l._isCustomerPin)l.remove();});
-  // まず保存済みlat/lngで表示、なければジオコード
-  const noCoord=[];
-  C.forEach(c=>{
-    if(c.lat&&c.lng){
-      addCustomerPin(c,map);
-    } else {
-      noCoord.push(c);
-    }
-  });
-  if(noCoord.length>0){
-    geocodeSequential(noCoord,0,map);
-  }
-}
-
-function resetAndGeocode(){
-  // 全顧客のlat/lngをリセットしてジオコードしなおす
-  C.forEach(c=>{c.lat=undefined;c.lng=undefined;});
-  save();
-  updateLeafletPins();
-  showToast('📍 位置情報を再取得中...','ok');
-}
-
-function geocodeSequential(list,idx,map){
-  if(idx>=list.length){
-    if(list.length>0)showToast('✅ 全顧客の位置情報を取得しました','ok');
-    return;
-  }
-  if(idx===0&&list.length>0)showToast('📍 顧客の位置情報を取得中...（'+list.length+'件）');
-  const c=list[idx];
-  const addrClean=c.addr.replace(/〒\d{3}-\d{4}\s*/g,'').trim();
-  const q=encodeURIComponent(addrClean);
-  fetch('https://nominatim.openstreetmap.org/search?format=json&q='+q+'&limit=1&accept-language=ja',{
-    headers:{'User-Agent':'HamazakiKerosenePro/1.3'}
-  })
-  .then(r=>r.json())
-  .then(data=>{
-    if(data&&data[0]){
-      c.lat=parseFloat(data[0].lat);
-      c.lng=parseFloat(data[0].lon);
-      save();
-      addCustomerPin(c,map);
-    }
-    // 次の顧客を1秒後に処理（Nominatim利用規約：1req/sec）
-    setTimeout(()=>geocodeSequential(list,idx+1,map),1100);
-  })
-  .catch(()=>{
-    setTimeout(()=>geocodeSequential(list,idx+1,map),1100);
-  });
-}
-
-function geocodeCustomer(c,map){
-  geocodeSequential([c],0,map);
+    .catch(()=>{
+      const c=map.getCenter();
+      addBaseMarker(map,c.lat,c.lng);
+      showToast('📍 拠点を地図中心に配置しました');
+    });
 }
 function addCustomerPin(c,map){
   const d=dSince(c.lastDate);
