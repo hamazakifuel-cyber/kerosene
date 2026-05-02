@@ -926,19 +926,26 @@ function openInGoogleMaps(){
   showToast(`📍 Googleマップで${count}件のルートを開きます`,'ok');
 }
 function openRouteMapModal(){
-  // ルート詳細確認モーダル
   const stops=routeOrder.filter(c=>!completedIds.has(c.id));
   if(!stops.length){showToast('⚠️ ルートに配達先がありません','err');return;}
   document.getElementById('routeMapModal').classList.add('open');
-  document.getElementById('routeMapList').innerHTML=stops.map((c,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border);">
-      <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">${i+1}</div>
-      <div style="flex:1;">
-        <div style="font-size:14px;font-weight:700;">${c.name}</div>
-        <div style="font-size:11px;color:var(--muted);">${c.addr}</div>
-      </div>
-      <button onclick="openInMapsWithAddr('${encodeURIComponent(c.addr)}','${encodeURIComponent(c.name)}')" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--white);font-size:11px;cursor:pointer;">📍</button>
-    </div>`).join('');
+  const el=document.getElementById('routeMapList');
+  el.innerHTML='';
+  stops.forEach((c,i)=>{
+    const div=document.createElement('div');
+    div.style.cssText='display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid #e2e6ea;';
+    div.innerHTML=`<div style="width:28px;height:28px;border-radius:50%;background:#2196f3;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">${i+1}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;">${c.name}</div>
+        <div style="font-size:11px;color:#8a95a3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.addr}</div>
+      </div>`;
+    const btn=document.createElement('button');
+    btn.textContent='📍';
+    btn.style.cssText='padding:6px 10px;border:1px solid #e2e6ea;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;flex-shrink:0;';
+    btn.onclick=()=>openInMapsWithAddr(encodeURIComponent(c.addr),encodeURIComponent(c.name));
+    div.appendChild(btn);
+    el.appendChild(div);
+  });
 }
 function openInMapsWithAddr(addr,name){window.open(`maps://?address=${addr}&q=${name}`,'_blank');}
 
