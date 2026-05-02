@@ -691,36 +691,48 @@ function geocodeAndAddBase(map){
 function updateLeafletPins(){
   const map=window._leafletMap;
   if(!map)return;
-  // 既存ピンをクリア（GPS・拠点以外）
-  map.eachLayer(l=>{
-    if(l._isCustomerPin)l.remove();
-  });
-  // 顧客ピンを追加
+  // 既存顧客ピンをクリア
+  map.eachLayer(l=>{if(l._isCustomerPin)l.remove();});
+  // lat/lngがある顧客はすぐ表示
   C.forEach(c=>{
-    if(!c.lat||!c.lng){
-      // 住所からジオコード
-      geocodeCustomer(c,map);
-    } else {
-      addCustomerPin(c,map);
-    }
+    if(c.lat&&c.lng)addCustomerPin(c,map);
   });
+  // lat/lngがない顧客は1件ずつ順番にジオコード（Nominatim制限対策）
+  const noCoord=C.filter(c=>!c.lat||!c.lng);
+  geocodeSequential(noCoord,0,map);
 }
 
-function geocodeCustomer(c,map){
-  const addrClean=c.addr.replace(/〒\d{3}-\d{4}\s*/,'');
+function geocodeSequential(list,idx,map){
+  if(idx>=list.length){
+    if(list.length>0)showToast('✅ 全顧客の位置情報を取得しました','ok');
+    return;
+  }
+  if(idx===0&&list.length>0)showToast('📍 顧客の位置情報を取得中...（'+list.length+'件）');
+  const c=list[idx];
+  const addrClean=c.addr.replace(/〒\d{3}-\d{4}\s*/g,'').trim();
   const q=encodeURIComponent(addrClean);
-  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`)
-    .then(r=>r.json())
-    .then(data=>{
-      if(!data||!data[0])return;
+  fetch('https://nominatim.openstreetmap.org/search?format=json&q='+q+'&limit=1&accept-language=ja',{
+    headers:{'User-Agent':'HamazakiKerosenePro/1.3'}
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    if(data&&data[0]){
       c.lat=parseFloat(data[0].lat);
       c.lng=parseFloat(data[0].lon);
       save();
       addCustomerPin(c,map);
-    })
-    .catch(e=>console.log('Geocode error:',e));
+    }
+    // 次の顧客を1秒後に処理（Nominatim利用規約：1req/sec）
+    setTimeout(()=>geocodeSequential(list,idx+1,map),1100);
+  })
+  .catch(()=>{
+    setTimeout(()=>geocodeSequential(list,idx+1,map),1100);
+  });
 }
 
+function geocodeCustomer(c,map){
+  geocodeSequential([c],0,map);
+}
 function addCustomerPin(c,map){
   const d=dSince(c.lastDate);
   const col=pinColor(d);
@@ -944,14 +956,14 @@ function updatePriceDisplay(idx,overridePrice){
 
 if(!C){
   C=[
-    {id:1,name:'上田 くるみ',yomi:'うえだ くるみ',addr:'〒001-0907 北海道札幌市北区新琴似7条14丁目6-3',type:'home',price:150,priceTier:12,tel:'011-111-1111',memo:'給油口：玄関左側\nポリ缶あり',lastDate:dAgo(3),mx:35,my:25,photos:[]},
-    {id:2,name:'福士 眞知子',yomi:'ふくし まちこ',addr:'〒001-0906 北海道札幌市北区新琴似6条13丁目3-29',type:'home',price:145,priceTier:6,tel:'011-222-2222',memo:'屋外タンク',lastDate:dAgo(11),mx:58,my:40,photos:[]},
-    {id:3,name:'北のさくら',yomi:'きたのさくら',addr:'〒001-0035 北海道札幌市北区北35条西5丁目1-15',type:'business',price:145,priceTier:6,tel:'011-333-3333',memo:'①490L 1番奥 店舗裏\n②90Lとポリ缶 店舗内\n(※屋内にあるのでストーブ電源切ってもらう)\n電話注文／振込\n北新',lastDate:dAgo(19),mx:22,my:62,photos:[]},
-    {id:4,name:'斉藤 和彦',yomi:'さいとう かずひこ',addr:'〒001-0904 北海道札幌市北区新琴似4条4丁目4-7',type:'home',price:147,priceTier:4,tel:'011-444-4444',memo:'',lastDate:dAgo(26),mx:70,my:35,photos:[]},
-    {id:5,name:'定免 忠郎',yomi:'さだめん ただお',addr:'〒001-0910 北海道札幌市北区新琴似10条11丁目2-16',type:'home',price:145,priceTier:6,tel:'011-555-5555',memo:'',lastDate:dAgo(7),mx:45,my:72,photos:[]},
-    {id:6,name:'笹木 幸一',yomi:'ささき こういち',addr:'〒001-0911 北海道札幌市北区新琴似11条16丁目7-2',type:'home',price:145,priceTier:6,tel:'011-666-6666',memo:'',lastDate:dAgo(14),mx:62,my:55,photos:[]},
-    {id:7,name:'ホクト造園',yomi:'ほくとぞうえん',addr:'〒001-0004 北海道札幌市北区新川西4条2丁目',type:'industry',price:145,priceTier:6,tel:'011-777-7777',memo:'大型タンク 要事前連絡',lastDate:dAgo(30),mx:82,my:30,photos:[]},
-    {id:8,name:'田中商事',yomi:'たなかしょうじ',addr:'北海道江別市8-8',type:'business',price:140,priceTier:9,tel:'0123-88-8888',memo:'',lastDate:dAgo(5),mx:40,my:20,photos:[]},
+    {id:1,name:'上田 くるみ',yomi:'うえだ くるみ',addr:'〒001-0907 北海道札幌市北区新琴似7条14丁目6-3',type:'home',price:150,priceTier:12,tel:'011-111-1111',memo:'給油口：玄関左側\nポリ缶あり',lastDate:dAgo(3),mx:35,my:25,lat:43.1012,lng:141.3456,photos:[]},
+    {id:2,name:'福士 眞知子',yomi:'ふくし まちこ',addr:'〒001-0906 北海道札幌市北区新琴似6条13丁目3-29',type:'home',price:145,priceTier:6,tel:'011-222-2222',memo:'屋外タンク',lastDate:dAgo(11),mx:58,my:40,lat:43.0998,lng:141.3478,photos:[]},
+    {id:3,name:'北のさくら',yomi:'きたのさくら',addr:'〒001-0035 北海道札幌市北区北35条西5丁目1-15',type:'business',price:145,priceTier:6,tel:'011-333-3333',memo:'①490L 1番奥 店舗裏\n②90Lとポリ缶 店舗内\n(※屋内にあるのでストーブ電源切ってもらう)\n電話注文／振込\n北新',lastDate:dAgo(19),mx:22,my:62,lat:43.0876,lng:141.3312,photos:[]},
+    {id:4,name:'斉藤 和彦',yomi:'さいとう かずひこ',addr:'〒001-0904 北海道札幌市北区新琴似4条4丁目4-7',type:'home',price:147,priceTier:4,tel:'011-444-4444',memo:'',lastDate:dAgo(26),mx:70,my:35,lat:43.0945,lng:141.3523,photos:[]},
+    {id:5,name:'定免 忠郎',yomi:'さだめん ただお',addr:'〒001-0910 北海道札幌市北区新琴似10条11丁目2-16',type:'home',price:145,priceTier:6,tel:'011-555-5555',memo:'',lastDate:dAgo(7),mx:45,my:72,lat:43.1034,lng:141.3489,photos:[]},
+    {id:6,name:'笹木 幸一',yomi:'ささき こういち',addr:'〒001-0911 北海道札幌市北区新琴似11条16丁目7-2',type:'home',price:145,priceTier:6,tel:'011-666-6666',memo:'',lastDate:dAgo(14),mx:62,my:55,lat:43.1056,lng:141.3501,photos:[]},
+    {id:7,name:'ホクト造園',yomi:'ほくとぞうえん',addr:'〒001-0004 北海道札幌市北区新川西4条2丁目',type:'industry',price:145,priceTier:6,tel:'011-777-7777',memo:'大型タンク 要事前連絡',lastDate:dAgo(30),mx:82,my:30,lat:43.0823,lng:141.3267,photos:[]},
+    {id:8,name:'田中商事',yomi:'たなかしょうじ',addr:'北海道江別市8-8',type:'business',price:140,priceTier:9,tel:'0123-88-8888',memo:'',lastDate:dAgo(5),mx:40,my:20,lat:43.1156,lng:141.5412,photos:[]},
   ];
   FH=[
     {id:1,cid:1,date:dAgo(3),liter:95,price:150,note:''},
@@ -1254,33 +1266,6 @@ function closePhotoViewer(){document.getElementById('photoViewer').classList.rem
 // =================================================================
 // MAP
 // =================================================================
-function renderMap(){
-  const el=document.getElementById('mapPins');
-  el.innerHTML='';
-  const W=el.closest('.map-container').offsetWidth;
-  const H=el.closest('.map-container').offsetHeight;
-  C.forEach(c=>{
-    const d=dSince(c.lastDate);
-    const col=pinColor(d);
-    const x=(c.mx||50)/100*W;
-    const y=(c.my||50)/100*H;
-    const wrap=document.createElement('div');
-    wrap.className='map-pin-wrap';
-    wrap.style.left=x+'px';
-    wrap.style.top=y+'px';
-    let pinHTML='';
-    if(c.type==='home'){
-      pinHTML=`<div class="pin-ball" style="background:${col};"><style>.pin-ball::after{border-bottom-color:${col}!important;}</style></div>`;
-    }else if(c.type==='business'){
-      pinHTML=`<div class="pin-tri" style="border-bottom:22px solid ${col};"></div>`;
-    }else{
-      pinHTML=`<div class="pin-sq" style="background:${col};"></div>`;
-    }
-    wrap.innerHTML=`${pinHTML}<div class="map-label">${c.name.split(' ')[0]}</div>`;
-    wrap.onclick=()=>openDetailSheet(c.id);
-    el.appendChild(wrap);
-  });
-}
 
 function openInMaps(){
   const stops=routeOrder.filter(c=>!completedIds.has(c.id));
