@@ -6,6 +6,7 @@
 <title>浜崎式 灯油配達管理Pro Ver 1.3</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -243,8 +244,8 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 .bar-val{font-size:10px;font-weight:700;color:#fff;}
 
 /* TOAST */
-.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(60px);background:#1a1a2e;color:#fff;padding:12px 24px;border-radius:30px;font-size:13px;font-weight:700;z-index:999;transition:transform .3s;white-space:nowrap;box-shadow:var(--shadow2);}
-.toast.show{transform:translateX(-50%) translateY(0);}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:14px 26px;border-radius:30px;font-size:14px;font-weight:700;z-index:9999;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.4);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .3s,visibility .3s;cursor:pointer;}
+.toast.show{opacity:1;visibility:visible;pointer-events:auto;}
 .toast.err{background:var(--red);}
 .toast.ok{background:var(--green);}
 
@@ -262,6 +263,32 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 .empty{text-align:center;padding:40px 20px;color:var(--muted);}
 .empty-ic{font-size:48px;margin-bottom:12px;opacity:.4;}
 .empty p{font-size:14px;}
+
+/* === ChatGPT map stability patch === */
+.leaflet-container{
+  width:100%;
+  height:100%;
+  min-height:360px;
+  background:#e8f0fe;
+}
+#leafletMap,
+#map,
+.leaflet-map,
+.map-container .leaflet-container{
+  width:100%;
+  height:100%;
+  min-height:360px;
+}
+.map-container{
+  min-height:420px;
+}
+@supports (-webkit-touch-callout: none) {
+  .map-container{
+    height:calc(100dvh - 210px);
+    min-height:420px;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -338,9 +365,12 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 <div class="view" id="view-map">
   <div style="background:var(--white);border-radius:var(--r);overflow:hidden;margin-bottom:10px;box-shadow:var(--shadow);">
     <div id="leafletMap" style="width:100%;height:450px;background:#e8f0fe;"></div>
-    <div style="display:flex;gap:8px;padding:10px;">
+    <div style="display:flex;gap:8px;padding:10px;flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" style="flex:1;" onclick="openInGoogleMaps()">📍 Googleマップでルートを開く</button>
       <button class="btn btn-outline btn-sm" onclick="locateMe()">📡 現在地</button>
+      <button class="btn btn-outline btn-sm" onclick="resetMapRotation()" id="compassBtn" style="width:44px;height:38px;padding:4px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;" title="北向きに戻す">
+  <div class="compass-arrow" style="font-size:20px;line-height:1;transition:transform .3s;">🧭</div>
+</button>
     </div>
     <div id="pinSetBanner" style="display:none;background:rgba(33,150,243,.1);border-top:2px solid var(--accent);padding:12px;align-items:center;gap:10px;">
       <span style="font-size:20px;">📍</span>
@@ -955,7 +985,33 @@ function renderMap_old(){
     wrap.style.top=y+'px';
     let pinHTML='';
     if(c.type==='home'){
-      pinHTML=`<div class="pin-ball" style="background:${col};"><style>.pin-ball::after{border-bottom-color:${col}!important;}</style></div>`;
+      pinHTML=`<div class="pin-ball" style="background:${col};"><style>.pin-ball::after{border-bottom-color:${col}!important;}
+/* === ChatGPT map stability patch === */
+.leaflet-container{
+  width:100%;
+  height:100%;
+  min-height:360px;
+  background:#e8f0fe;
+}
+#leafletMap,
+#map,
+.leaflet-map,
+.map-container .leaflet-container{
+  width:100%;
+  height:100%;
+  min-height:360px;
+}
+.map-container{
+  min-height:420px;
+}
+@supports (-webkit-touch-callout: none) {
+  .map-container{
+    height:calc(100dvh - 210px);
+    min-height:420px;
+  }
+}
+
+</style></div>`;
     }else if(c.type==='business'){
       pinHTML=`<div class="pin-tri" style="border-bottom:22px solid ${col};"></div>`;
     }else{
@@ -1273,11 +1329,41 @@ function initLeafletMap(){
   const container=document.getElementById('leafletMap');
   if(!container)return;
   if(_leafletMap){_leafletMap.remove();_leafletMap=null;}
-  const map=L.map('leafletMap',{center:[43.108,141.341],zoom:13,zoomControl:true});
+
+  // 地図の初期中心を決定（GPS > 拠点座標 > デフォルト）
+  const sLat=parseFloat(localStorage.getItem('v4_officeLat'));
+  const sLng=parseFloat(localStorage.getItem('v4_officeLng'));
+  const centerLat=(!isNaN(sLat)&&!isNaN(sLng))?sLat:43.108;
+  const centerLng=(!isNaN(sLat)&&!isNaN(sLng))?sLng:141.341;
+  const zoom=(!isNaN(sLat)&&!isNaN(sLng))?14:12;
+
+  const map=L.map('leafletMap',{
+    center:[centerLat,centerLng],
+    zoom:zoom,
+    zoomControl:true,
+    rotate:true,
+    touchRotate:true,
+    rotateControl:{closeOnZeroBearing:false}
+  });
   _leafletMap=map;
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom:19
   }).addTo(map);
+
+  // 回転イベント：コンパスボタン更新
+  map.on('rotate',function(){
+    var b=map.getBearing?map.getBearing():0;
+    var btn=document.getElementById('compassBtn');
+    if(btn){
+      var inner=btn.querySelector('.compass-arrow');
+      if(inner)inner.style.transform='rotate('+(b)+'deg)';
+      btn.title='現在の向き：'+Math.round(b)+'° / タップで北に戻す';
+    }
+  });
+
+  // 地図クリック：ピン設定モード
   map.on('click',function(e){
     if(!window._mapEditMode)return;
     const c=window._mapEditCustomer;if(!c)return;
@@ -1285,22 +1371,51 @@ function initLeafletMap(){
     updateLeafletPins();
     window._mapEditMode=false;window._mapEditCustomer=null;
     map.getContainer().style.cursor='';
-    const banner=document.getElementById('pinSetBanner');if(banner)banner.style.display='none';
+    const banner=document.getElementById('pinSetBanner');
+    if(banner)banner.style.display='none';
     showToast('✅ '+c.name+'さんのピンを保存しました','ok');
   });
-  const sLat=parseFloat(localStorage.getItem('v4_officeLat'));
-  const sLng=parseFloat(localStorage.getItem('v4_officeLng'));
-  if(baseOfficeAddr&&!isNaN(sLat)&&!isNaN(sLng)){
+
+  // 拠点マーカー（緯度経度が設定済みの場合のみ表示）
+  if(!isNaN(sLat)&&!isNaN(sLng)){
     addBaseMarker(map,sLat,sLng);
-  } else if(baseOfficeAddr){
-    geocodeAndAddBase(map);
   } else {
     addBaseMarkerDefault(map);
   }
-  locateMe();
-  setTimeout(function(){updateLeafletPins();},600);
-}
 
+  // 顧客ピン
+  setTimeout(function(){updateLeafletPins();},400);
+
+  // GPS現在地取得
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      function(pos){
+        const lat=pos.coords.latitude,lng=pos.coords.longitude,acc=pos.coords.accuracy;
+        if(_gpsMarker)_gpsMarker.remove();if(_gpsCircle)_gpsCircle.remove();
+        const gIcon=L.divIcon({
+          html:'<div style="width:16px;height:16px;border-radius:50%;background:#2196f3;border:3px solid white;box-shadow:0 2px 8px rgba(33,150,243,.6);"></div>',
+          className:'',iconSize:[16,16],iconAnchor:[8,8]
+        });
+        _gpsMarker=L.marker([lat,lng],{icon:gIcon}).addTo(map).bindPopup('現在地');
+        _gpsCircle=L.circle([lat,lng],{radius:acc,color:'#2196f3',fillColor:'#2196f3',fillOpacity:0.1,weight:1}).addTo(map);
+        // 拠点未設定の場合は現在地に移動
+        if(isNaN(sLat)||isNaN(sLng)){
+          map.setView([lat,lng],14);
+        }
+        showToast('📡 現在地を表示しました','ok');
+      },
+      function(err){
+        if(err.code===1){
+          // 許可されていない場合 → 設定画面への案内モーダルを表示
+          showGpsPermissionModal();
+        } else {
+          showToast('⚠️ 位置情報を取得できませんでした','err');
+        }
+      },
+      {enableHighAccuracy:true,timeout:8000,maximumAge:0}
+    );
+  }
+}
 function addBaseMarkerDefault(map){
   const icon=L.divIcon({
     html:'<div style="background:#666;border:3px solid white;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 3px 12px rgba(0,0,0,.5);">🏯</div>',
@@ -1324,18 +1439,28 @@ function addBaseMarker(map,lat,lng){
 
 function geocodeAndAddBase(map){
   showToast('🏯 拠点住所を検索中...');
-  const q=encodeURIComponent(baseOfficeAddr);
-  fetch('https://photon.komoot.io/api/?q='+q+'&limit=1&lang=ja')
+  const addrClean=baseOfficeAddr.replace(/〒\d{3}-?\d{4}\s*/g,'').trim();
+  const q=encodeURIComponent(addrClean);
+  fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q='+q)
     .then(function(r){return r.json();})
     .then(function(data){
-      if(data&&data.features&&data.features[0]){
-        const coords=data.features[0].geometry.coordinates;
-        addBaseMarker(map,coords[1],coords[0]);
+      if(data&&data[0]&&data[0].geometry){
+        const coords=data[0].geometry.coordinates;
+        const lat=coords[1],lng=coords[0];
+        localStorage.setItem('v4_officeLat',lat);
+        localStorage.setItem('v4_officeLng',lng);
+        addBaseMarker(map,lat,lng);
         showToast('✅ 拠点を地図に表示しました','ok');
-      } else {addBaseMarkerDefault(map);}
-    }).catch(function(){addBaseMarkerDefault(map);});
+      } else {
+        showToast('⚠️ 住所が見つかりません。緯度経度を直接入力してください','err');
+        addBaseMarkerDefault(map);
+      }
+    })
+    .catch(function(){
+      showToast('⚠️ 住所検索に失敗しました。緯度経度を入力してください','err');
+      addBaseMarkerDefault(map);
+    });
 }
-
 function updateLeafletPins(){
   const map=_leafletMap;if(!map)return;
   map.eachLayer(function(l){if(l._isCustomerPin)l.remove();});
@@ -1347,33 +1472,46 @@ function updateLeafletPins(){
 function geocodeSequential(list,idx,map){
   if(idx>=list.length)return;
   const c=list[idx];
-  const addrClean=c.addr.replace(/\u300e\d{3}-\d{4}\s*/g,'').replace(/〒\S+\s*/,'').trim();
+  const addrClean=c.addr.replace(/〒\d{3}-?\d{4}\s*/g,'').replace(/\s+/g,' ').trim();
   const q=encodeURIComponent(addrClean);
-  fetch('https://photon.komoot.io/api/?q='+q+'&limit=1&lang=ja')
+  fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q='+q)
     .then(function(r){return r.json();})
     .then(function(data){
-      if(data&&data.features&&data.features[0]){
-        const coords=data.features[0].geometry.coordinates;
-        c.lat=coords[1];c.lng=coords[0];save();addCustomerPin(c,map);
+      if(data&&data[0]&&data[0].geometry){
+        const coords=data[0].geometry.coordinates;
+        c.lat=coords[1];c.lng=coords[0];
+        save();addCustomerPin(c,map);
       }
-      setTimeout(function(){geocodeSequential(list,idx+1,map);},1000);
-    }).catch(function(){setTimeout(function(){geocodeSequential(list,idx+1,map);},1000);});
+      setTimeout(function(){geocodeSequential(list,idx+1,map);},600);
+    })
+    .catch(function(){
+      setTimeout(function(){geocodeSequential(list,idx+1,map);},600);
+    });
 }
-
 function addCustomerPin(c,map){
   const d=dSince(c.lastDate);
   const col=pinColor(d);
   const shape=c.type==='home'?'50%':c.type==='business'?'0% 50% 50% 50%':'4px';
   const typeIcon=c.type==='home'?'🏠':c.type==='business'?'🏢':'🏭';
   const icon=L.divIcon({
-    html:'<div style="width:32px;height:32px;border-radius:'+shape+';background:'+col+';border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:13px;">'+typeIcon+'</div>',
+    html:'<div style="width:32px;height:32px;border-radius:'+shape+';background:'+col+';border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;">'+typeIcon+'</div>',
     className:'',iconSize:[32,32],iconAnchor:[16,16]
   });
+  const dLabel=d===999?'未記録':d+'日前';
   const marker=L.marker([c.lat,c.lng],{icon:icon}).addTo(map);
   marker._isCustomerPin=true;
-  const dLabel=d===999?'未記録':d+'日前';
-  marker.bindPopup('<div style="min-width:150px;"><b style="font-size:14px;">'+c.name+'</b><br><span style="font-size:11px;color:#666;">'+c.addr.replace(/〒\S+\s*/,'')+'</span><br><span style="color:'+col+';font-size:11px;font-weight:700;">最終給油：'+dLabel+'</span><br><span style="font-size:11px;">¥'+calcCustomerPrice(c)+'/L</span></div>');
+  // ポップアップに「詳細を見る」ボタンを追加
+  const popupHtml='<div style="min-width:160px;font-family:sans-serif;">'
+    +'<b style="font-size:14px;">'+c.name+'</b><br>'
+    +'<span style="font-size:11px;color:#666;">'+c.addr.replace(/〒\S+\s*/,'')+'</span><br>'
+    +'<span style="color:'+col+';font-size:11px;font-weight:700;">最終給油：'+dLabel+'</span><br>'
+    +'<span style="font-size:11px;">¥'+calcCustomerPrice(c)+'/L</span><br>'
+    +'<button onclick="window._openDetailFromMap('+c.id+')" '
+    +'style="margin-top:8px;width:100%;padding:7px;background:#2196f3;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">📋 顧客詳細を開く</button>'
+    +'</div>';
+  marker.bindPopup(popupHtml,{maxWidth:200});
 }
+
 
 function locateMe(){
   const map=_leafletMap;
@@ -1389,7 +1527,10 @@ function locateMe(){
       map.setView([lat,lng],14);
       showToast('📡 現在地を表示しました','ok');
     },
-    function(){showToast('⚠️ 位置情報を取得できませんでした','err');},
+    function(err){
+      if(err.code===1){showGpsPermissionModal();}
+      else{showToast('⚠️ 位置情報を取得できませんでした','err');}
+    },
     {enableHighAccuracy:true,timeout:10000}
   );
 }
@@ -1410,6 +1551,76 @@ function startPinSetMode(id){
   },350);
 }
 
+function resetAllPins(){
+  if(!confirm('全顧客のピン位置をリセットして住所から再取得しますか？')){return;}
+  C.forEach(function(c){delete c.lat;delete c.lng;});
+  save();
+  if(_leafletMap){
+    _leafletMap.eachLayer(function(l){if(l._isCustomerPin)l.remove();});
+    var nc=C.filter(function(c){return !c.lat||!c.lng;});
+    showToast('📍 位置を再取得中（'+nc.length+'件）');
+    geocodeSequential(nc,0,_leafletMap);
+  }
+}
+
+// 地図ポップアップから顧客詳細を開く
+window._openDetailFromMap=function(id){
+  // ポップアップを閉じて顧客タブに移動
+  if(_leafletMap)_leafletMap.closePopup();
+  switchTab('customers');
+  setTimeout(function(){openDetailSheet(id);},200);
+};
+
+function showGpsPermissionModal(){
+  var existing=document.getElementById('gpsPermModal');
+  if(existing)existing.remove();
+  var modal=document.createElement('div');
+  modal.id='gpsPermModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;';
+  // アイコンとタイトル
+  var header=document.createElement('div');
+  header.style.cssText='text-align:center;margin-bottom:16px;';
+  header.innerHTML='<div style="font-size:44px;margin-bottom:8px;">📍</div><div style="font-size:17px;font-weight:900;color:#1a1a2e;">位置情報が許可されていません</div>';
+  // 手順
+  var steps=document.createElement('div');
+  steps.style.cssText='background:#f0f7ff;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.8;color:#333;';
+  steps.innerHTML='<b style="color:#2196f3;">📱 iPhone設定手順：</b><br>'
+    +'① iPhoneの<b>「設定」</b>アプリを開く<br>'
+    +'② <b>「プライバシーと<br>　　セキュリティ」</b>をタップ<br>'
+    +'③ <b>「位置情報サービス」</b>をタップ<br>'
+    +'④ <b>「Safari」</b>をタップ<br>'
+    +'⑤ <b>「このAppの使用中」</b>を選択<br>'
+    +'⑥ このアプリに戻って<br>　　<b>「📡 現在地」</b>をタップ';
+  // 閉じるボタン
+  var btnClose=document.createElement('button');
+  btnClose.style.cssText='width:100%;padding:14px;background:#2196f3;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;';
+  btnClose.textContent='わかりました';
+  btnClose.onclick=function(){modal.remove();};
+  box.appendChild(header);
+  box.appendChild(steps);
+  box.appendChild(btnClose);
+  modal.appendChild(box);
+  // 背景タップで閉じる
+  modal.onclick=function(e){if(e.target===modal)modal.remove();};
+  document.body.appendChild(modal);
+}
+
+
+function resetMapRotation(){
+  if(!_leafletMap)return;
+  if(_leafletMap.setBearing){
+    _leafletMap.setBearing(0);
+  }
+  var btn=document.getElementById('compassBtn');
+  if(btn){
+    var inner=btn.querySelector('.compass-arrow');
+    if(inner)inner.style.transform='rotate(0deg)';
+  }
+  showToast('🧭 北向きに戻しました','ok');
+}
+
 function cancelPinSetMode(){
   window._mapEditMode=false;window._mapEditCustomer=null;
   if(_leafletMap)_leafletMap.getContainer().style.cursor='';
@@ -1426,19 +1637,23 @@ function saveBaseOffice(){
   const lat=parseFloat(document.getElementById('baseOfficeLat').value);
   const lng=parseFloat(document.getElementById('baseOfficeLng').value);
   if(!addr){showToast('⚠️ 住所を入力してください','err');return;}
-  baseOfficeName=name;baseOfficeAddr=addr;
-  localStorage.setItem('v4_officeName',name);localStorage.setItem('v4_officeAddr',addr);
-  if(!isNaN(lat)&&!isNaN(lng)){
-    localStorage.setItem('v4_officeLat',lat);localStorage.setItem('v4_officeLng',lng);
-    if(_leafletMap)addBaseMarker(_leafletMap,lat,lng);
-    showToast('✅ 拠点を保存しました','ok');
-  } else {
-    localStorage.removeItem('v4_officeLat');localStorage.removeItem('v4_officeLng');
-    if(_leafletMap)geocodeAndAddBase(_leafletMap);
-    showToast('✅ 拠点住所を保存しました','ok');
+  if(isNaN(lat)||isNaN(lng)){
+    showToast('⚠️ 緯度・経度を入力してください','err');
+    alert('【緯度・経度の確認方法】\nGoogleマップで拠点を開き、ピンを長押しすると\n画面上部に緯度・経度が表示されます。\n例：43.1234, 141.3456');
+    return;
   }
+  baseOfficeName=name;
+  baseOfficeAddr=addr;
+  localStorage.setItem('v4_officeName',name);
+  localStorage.setItem('v4_officeAddr',addr);
+  localStorage.setItem('v4_officeLat',lat);
+  localStorage.setItem('v4_officeLng',lng);
+  // 地図に即時反映
+  if(_leafletMap){
+    addBaseMarker(_leafletMap,lat,lng);
+  }
+  showToast('✅ 拠点を保存しました','ok');
 }
-
 function saveBasePrice(){
   const val=parseInt(document.getElementById('basePriceInput').value)||0;
   if(val<50||val>500){showToast('⚠️ 単価は50〜500円で入力してください','err');return;}
@@ -1566,13 +1781,71 @@ function migrateLatLng(){
 // =================================================================
 // TOAST
 // =================================================================
+let _toastTimer=null;
 function showToast(msg,type=''){
   const t=document.getElementById('toast');
+  if(!t)return;
+  if(_toastTimer){clearTimeout(_toastTimer);_toastTimer=null;}
   t.textContent=msg;
   t.className='toast'+(type?' '+type:'');
+  t.onclick=function(){t.classList.remove('show');};
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2800);
+  _toastTimer=setTimeout(function(){t.classList.remove('show');_toastTimer=null;},3500);
 }
 </script>
+
+<script>
+/* === ChatGPT Leaflet safety patch ===
+   iPhone/iPad Safariで、非表示タブ内にあるLeaflet地図が
+   表示復帰時に崩れる問題を軽減します。
+*/
+(function(){
+  function findLeafletMap(){
+    try{
+      if (window.leafletMap && typeof window.leafletMap.invalidateSize === "function") return window.leafletMap;
+      if (window.map && typeof window.map.invalidateSize === "function") return window.map;
+      for (const key in window){
+        try{
+          const v = window[key];
+          if (v && typeof v.invalidateSize === "function" && typeof v.setView === "function") return v;
+        }catch(e){}
+      }
+    }catch(e){}
+    return null;
+  }
+
+  function refreshLeafletMap(){
+    const m = findLeafletMap();
+    if (!m) return;
+    setTimeout(function(){
+      try { m.invalidateSize(true); } catch(e) {}
+    }, 80);
+    setTimeout(function(){
+      try { m.invalidateSize(true); } catch(e) {}
+    }, 350);
+  }
+
+  window.addEventListener("resize", refreshLeafletMap);
+  window.addEventListener("orientationchange", refreshLeafletMap);
+  document.addEventListener("visibilitychange", function(){
+    if (!document.hidden) refreshLeafletMap();
+  });
+
+  document.addEventListener("click", function(e){
+    const t = e.target && e.target.closest ? e.target.closest(".btab,[data-tab],button") : null;
+    if (!t) return;
+    const txt = (t.textContent || "") + " " + (t.dataset ? JSON.stringify(t.dataset) : "");
+    if (txt.indexOf("地図") !== -1 || txt.indexOf("map") !== -1 || txt.indexOf("Map") !== -1) {
+      refreshLeafletMap();
+    }
+  }, true);
+
+  window.addEventListener("load", function(){
+    setTimeout(refreshLeafletMap, 300);
+    setTimeout(refreshLeafletMap, 1200);
+  });
+})();
+</script>
+
 </body>
 </html>
