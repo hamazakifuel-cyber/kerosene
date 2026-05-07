@@ -371,6 +371,25 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <button class="btn btn-outline btn-sm" onclick="resetMapRotation()" id="compassBtn" style="width:44px;height:38px;padding:4px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;" title="北向きに戻す">
   <div class="compass-arrow" style="font-size:20px;line-height:1;transition:transform .3s;">🧭</div>
 </button>
+      <button class="btn btn-success btn-sm" style="width:100%;" onclick="startNewCustomerPinMode()">📍 地図をタップして新規顧客を登録</button>
+    </div>
+    <div id="newCustPinBanner" style="display:none;background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(21,128,61,.05));border-top:2px solid var(--green);padding:12px;align-items:center;gap:10px;">
+      <span style="font-size:20px;">📍</span>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;color:var(--green);">新規顧客登録モード</div>
+        <div style="font-size:11px;color:var(--muted);">登録したい場所をタップしてください</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="cancelNewCustPinMode()" style="color:var(--red);">キャンセル</button>
+    </div>
+    <!-- ピン移動中バナー -->
+    <div id="pinMoveBanner" style="display:none;background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(180,83,9,.05));border-top:2px solid var(--yellow);padding:12px 14px;align-items:center;gap:10px;">
+      <span style="font-size:20px;">✋</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;color:var(--yellow);" id="pinMoveTargetName">ピンを移動中</div>
+        <div style="font-size:11px;color:var(--muted);">ドラッグで位置を調整してください</div>
+      </div>
+      <button onclick="window._savePinMove()" style="padding:8px 14px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">💾 保存</button>
+      <button onclick="window._cancelPinMove()" style="padding:8px 10px;background:var(--s1);color:var(--muted);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;flex-shrink:0;">✕</button>
     </div>
     <div id="pinSetBanner" style="display:none;background:rgba(33,150,243,.1);border-top:2px solid var(--accent);padding:12px;align-items:center;gap:10px;">
       <span style="font-size:20px;">📍</span>
@@ -380,7 +399,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
   </div>
   <div style="background:var(--white);border-radius:var(--r);padding:12px;box-shadow:var(--shadow);">
     <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;">凡例</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:12px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:15px;font-weight:500;">
       <div>🏯 拠点</div><div style="color:var(--green);">● 7日以内</div>
       <div style="color:var(--yellow);">● 8〜14日</div><div style="color:var(--orange);">● 15〜21日</div>
       <div style="color:var(--red);">● 22日以上</div><div>🏠一般 🏢事業 🏭農工</div>
@@ -503,7 +522,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 </div>
 
 <!-- FAB -->
-<button class="fab" id="fab" onclick="openCustomerModal()" style="display:none;">＋</button>
+<button class="fab" id="fab" onclick="openCustomerModal()" style="display:none;width:auto;border-radius:25px;padding:0 20px;font-size:13px;font-weight:700;letter-spacing:.03em;">＋ 顧客を追加</button>
 
 <!-- CUSTOMER DETAIL SHEET -->
 <div class="sheet-overlay" id="detailSheet">
@@ -535,10 +554,14 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <div class="fg"><label class="fl">顧客名</label><input class="fi" id="f_name" placeholder="山田 太郎"></div>
       <div class="fg"><label class="fl">ふりがな（あかさたな検索用）</label><input class="fi" id="f_yomi" placeholder="やまだ たろう" oninput="this.value=this.value.replace(/[ァ-ン]/g,s=>String.fromCharCode(s.charCodeAt(0)-0x60))"></div>
       <div class="fg"><label class="fl">住所</label><input class="fi" id="f_addr" placeholder="〒001-0000 北海道..."></div>
-      <div class="fr">
-        <div class="fg" style="margin:0;"><label class="fl">単価（円/L）</label><input class="fi" id="f_price" placeholder="110" readonly onclick="openNp('f_price','単価','円/L')"></div>
-        <div class="fg" style="margin:0;"><label class="fl">電話番号</label><input class="fi" id="f_tel" placeholder="011-000-0000"></div>
+      <div class="fg">
+        <label class="fl">単価区分</label>
+        <div id="priceTierSelector" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px;"></div>
+        <div style="font-size:12px;color:var(--muted);">適用単価：<span id="f_price_display" style="color:var(--accent);font-weight:700;font-size:14px;">—</span></div>
+        <input type="hidden" id="f_price">
+        <input type="hidden" id="f_price_tier" value="6">
       </div>
+      <div class="fg" style="margin:0;"><label class="fl">電話番号</label><input class="fi" id="f_tel" placeholder="011-000-0000"></div>
       <div class="fg"><label class="fl">メモ</label><textarea class="fi" id="f_memo" rows="3" placeholder="給油口の場所・注意事項など" style="resize:none;"></textarea></div>
       <div class="fr">
         <div class="fg" style="margin:0;"><label class="fl">地図X（%）</label><input class="fi" id="f_mx" type="number" min="5" max="95" placeholder="50"></div>
@@ -617,17 +640,9 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <div class="nk" onclick="nk('1')">1</div><div class="nk" onclick="nk('2')">2</div><div class="nk" onclick="nk('3')">3</div>
       <div class="nk" onclick="nk('0')">0</div><div class="nk" onclick="nk('.')">.</div><div class="nk del" onclick="nk('del')">⌫</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <div class="nk" onclick="closeNp()" style="text-align:center;padding:16px;border-radius:10px;cursor:pointer;">キャンセル</div>
-      <div class="nk ok" onclick="confirmNp()" style="text-align:center;padding:16px;border-radius:10px;cursor:pointer;">確定</div>
+
     </div>
   </div>
-</div>
-
-<!-- PHOTO VIEWER -->
-<div class="photo-viewer" id="photoViewer">
-  <img id="photoViewerImg" src="" alt="">
-  <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1155,6 +1170,22 @@ function addInterrupt(){
 // =================================================================
 // CUSTOMER CRUD
 // =================================================================
+function openCustomerModalWithCoords(lat,lng){
+  // 座標付きで新規顧客登録モーダルを開く
+  openCustomerModal(null);
+  // 座標をセット
+  setTimeout(function(){
+    const mxEl=document.getElementById('f_mx');
+    const myEl=document.getElementById('f_my');
+    if(mxEl)mxEl.value=lat.toFixed(6);
+    if(myEl)myEl.value=lng.toFixed(6);
+    // 内部的にlat/lngとして保持
+    window._pendingLat=lat;
+    window._pendingLng=lng;
+    showToast('📍 地図の位置が設定されました','ok');
+  },100);
+}
+
 function openCustomerModal(id=null){
   editId=id;curType='home';
   document.getElementById('custModalTitle').textContent=id?'顧客を編集':'顧客を追加';
@@ -1172,11 +1203,15 @@ function openCustomerModal(id=null){
       document.getElementById('f_name').value=c.name;
       document.getElementById('f_yomi').value=c.yomi||'';
       document.getElementById('f_addr').value=c.addr;
-      document.getElementById('f_price').value=c.price;
       document.getElementById('f_tel').value=c.tel||'';
       document.getElementById('f_memo').value=c.memo||'';
       document.getElementById('f_mx').value=c.mx||50;
       document.getElementById('f_my').value=c.my||50;
+      // 単価区分を復元
+      const tier=c.priceTier!==undefined?c.priceTier:6;
+      const ptEl=document.getElementById('f_price_tier');
+      if(ptEl)ptEl.value=tier;
+      renderPriceTierSelector(tier);
       document.querySelector(`[data-type="${c.type}"]`).classList.add('sel');
     }
   }
@@ -1189,17 +1224,24 @@ function selType(el,t){document.querySelectorAll('.type-opt').forEach(b=>b.class
 function saveCustomer(){
   const name=document.getElementById('f_name').value.trim();
   const addr=document.getElementById('f_addr').value.trim();
-  const price=parseFloat(document.getElementById('f_price').value)||0;
   if(!name||!addr){showToast('⚠️ 名前と住所を入力してください','err');return;}
-  if(price<=0){showToast('⚠️ 単価を入力してください','err');return;}
-  const data={name,addr,price,type:curType,tel:document.getElementById('f_tel').value,
+  // 単価区分から単価を計算
+  const priceTier=parseInt(document.getElementById('f_price_tier').value)||6;
+  const t=PRICE_TIERS[priceTier]||PRICE_TIERS[6];
+  const price=t.special==='zero'?0:getPrice(priceTier);
+  const data={name,addr,price,priceTier,type:curType,tel:document.getElementById('f_tel').value,
     yomi:document.getElementById('f_yomi').value.trim(),
     memo:document.getElementById('f_memo').value,
     mx:parseFloat(document.getElementById('f_mx').value)||50,
-    my:parseFloat(document.getElementById('f_my').value)||50};
+    my:parseFloat(document.getElementById('f_my').value)||50,
+    lat:(window._pendingLat||undefined),
+    lng:(window._pendingLng||undefined)};
+  window._pendingLat=undefined;window._pendingLng=undefined;
   if(editId){const i=C.findIndex(c=>c.id===editId);C[i]={...C[i],...data};}
   else{data.id=Date.now();data.lastDate=null;data.photos=[];C.push(data);}
-  save();closeCustModal();renderList();showToast(editId?'✅ 更新しました':'✅ 顧客を追加しました','ok');
+  save();closeCustModal();renderList();
+  if(!editId&&data.lat&&data.lng){switchTab('map');setTimeout(function(){updateLeafletPins();},300);}
+  showToast(editId?'✅ 更新しました':'✅ 顧客を追加しました','ok');
 }
 
 // =================================================================
@@ -1367,6 +1409,33 @@ function initLeafletMap(){
 
   // 地図クリック：ピン設定モード
   map.on('click',function(e){
+    // 新規顧客登録モード
+    if(window._newCustPinMode){
+      window._newCustPinMode=false;
+      _leafletMap.getContainer().style.cursor='';
+      const nb=document.getElementById('newCustPinBanner');
+      if(nb)nb.style.display='none';
+      // 仮ピンを立てる
+      var tmpIcon=L.divIcon({
+        html:'<div style="width:32px;height:32px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:16px;">🏠</div>',
+        className:'',iconSize:[32,32],iconAnchor:[16,16]
+      });
+      var tmpMarker=L.marker([e.latlng.lat,e.latlng.lng],{icon:tmpIcon}).addTo(map);
+      tmpMarker._isTempPin=true;
+      // 顧客登録画面を開く（座標を引き渡す）
+      window._newCustLat=e.latlng.lat;
+      window._newCustLng=e.latlng.lng;
+      // 仮ピンを3秒後に消す（登録後は正式ピンに置き換え）
+      setTimeout(function(){
+        try{map.removeLayer(tmpMarker);}catch(e){}
+      },4000);
+      switchTab('customers');
+      setTimeout(function(){
+        openCustomerModalWithCoords(e.latlng.lat,e.latlng.lng);
+      },200);
+      return;
+    }
+    // 既存顧客ピン位置修正モード
     if(!window._mapEditMode)return;
     const c=window._mapEditCustomer;if(!c)return;
     c.lat=e.latlng.lat;c.lng=e.latlng.lng;save();
@@ -1500,18 +1569,27 @@ function addCustomerPin(c,map){
     className:'',iconSize:[32,32],iconAnchor:[16,16]
   });
   const dLabel=d===999?'未記録':d+'日前';
-  const marker=L.marker([c.lat,c.lng],{icon:icon}).addTo(map);
+  // draggable:true でドラッグ移動可能
+  const marker=L.marker([c.lat,c.lng],{icon:icon,draggable:false}).addTo(map);
   marker._isCustomerPin=true;
-  // ポップアップに「詳細を見る」ボタンを追加
+  marker._customerId=c.id;
+
+
+
+  // ポップアップ
   const popupHtml='<div style="min-width:160px;font-family:sans-serif;">'
     +'<b style="font-size:14px;">'+c.name+'</b><br>'
-    +'<span style="font-size:11px;color:#666;">'+c.addr.replace(/〒\S+\s*/,'')+'</span><br>'
+    +'<span style="font-size:11px;color:#666;">'+c.addr.replace(/『\S+\s*/,'')+'</span><br>'
     +'<span style="color:'+col+';font-size:11px;font-weight:700;">最終給油：'+dLabel+'</span><br>'
     +'<span style="font-size:11px;">¥'+calcCustomerPrice(c)+'/L</span><br>'
+    +'<div style="display:flex;gap:6px;margin-top:8px;">'
     +'<button onclick="window._openDetailFromMap('+c.id+')" '
-    +'style="margin-top:8px;width:100%;padding:7px;background:#2196f3;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">📋 顧客詳細を開く</button>'
+    +'style="flex:1;padding:7px;background:#2196f3;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">📋 顧客詳細</button>'
+    +'<button onclick="window._startDragMode('+c.id+')" '
+    +'style="flex:1;padding:7px;background:#f59e0b;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">✋ 位置修正</button>'
+    +'</div>'
     +'</div>';
-  marker.bindPopup(popupHtml,{maxWidth:200});
+  marker.bindPopup(popupHtml,{maxWidth:210});
 }
 
 
@@ -1566,6 +1644,86 @@ function resetAllPins(){
 }
 
 // 地図ポップアップから顧客詳細を開く
+// ピンを移動モードにする（ポップアップから呼び出し）
+window._dragTargetMarker=null;
+window._dragTargetId=null;
+
+window._startDragMode=function(id){
+  if(!_leafletMap)return;
+  // まず全ピンをドラッグ不可・半透明にする
+  _leafletMap.eachLayer(function(l){
+    if(l._isCustomerPin){
+      l.closePopup();
+      if(l.dragging)l.dragging.disable();
+      const el=l.getElement();
+      if(el){
+        el.style.opacity='0.35';
+        el.style.transform='';
+        el.style.pointerEvents='none';
+      }
+    }
+  });
+  // 対象ピンのみドラッグ可能・強調
+  _leafletMap.eachLayer(function(l){
+    if(l._isCustomerPin&&l._customerId===id){
+      if(l.dragging)l.dragging.enable();
+      window._dragTargetMarker=l;
+      window._dragTargetId=id;
+      const el=l.getElement();
+      if(el){
+        el.style.opacity='1';
+        el.style.transform='scale(1.3)';
+        el.style.zIndex='1000';
+        el.style.transition='transform .15s';
+        el.style.pointerEvents='auto';
+      }
+    }
+  });
+  // 移動中バナーを表示
+  var banner=document.getElementById('pinMoveBanner');
+  var nameEl=document.getElementById('pinMoveTargetName');
+  var c=C.find(function(x){return x.id===id;});
+  if(nameEl&&c)nameEl.textContent=c.name+'さんのピンを移動中';
+  if(banner)banner.style.display='flex';
+  showToast('✋ ピンをドラッグして「保存」を押してください');
+};
+
+window._savePinMove=function(){
+  var id=window._dragTargetId;
+  var marker=window._dragTargetMarker;
+  if(!marker||!id)return;
+  var pos=marker.getLatLng();
+  var c=C.find(function(x){return x.id===id;});
+  if(c){c.lat=pos.lat;c.lng=pos.lng;save();}
+  window._cancelPinMove();
+  showToast('✅ ピン位置を保存しました','ok');
+};
+
+window._cancelPinMove=function(){
+  // 全ピンを元に戻す
+  if(_leafletMap){
+    _leafletMap.eachLayer(function(l){
+      if(l._isCustomerPin){
+        if(l.dragging)l.dragging.disable();
+        const el=l.getElement();
+        if(el){
+          el.style.opacity='1';
+          el.style.transform='';
+          el.style.pointerEvents='auto';
+          el.style.zIndex='';
+        }
+      }
+    });
+  }
+  // バナーを隠す
+  var banner=document.getElementById('pinMoveBanner');
+  if(banner)banner.style.display='none';
+  window._dragTargetMarker=null;
+  window._dragTargetId=null;
+  // ピン再描画
+  if(_leafletMap)updateLeafletPins();
+};
+
 window._openDetailFromMap=function(id){
   // ポップアップを閉じて顧客タブに移動
   if(_leafletMap)_leafletMap.closePopup();
@@ -1621,6 +1779,23 @@ function resetMapRotation(){
     if(inner)inner.style.transform='rotate(0deg)';
   }
   showToast('🧭 北向きに戻しました','ok');
+}
+
+// 新規顧客ピン設定モード
+function startNewCustomerPinMode(){
+  if(!_leafletMap){showToast('⚠️ 地図が読み込まれていません','err');return;}
+  window._newCustPinMode=true;
+  _leafletMap.getContainer().style.cursor='crosshair';
+  const banner=document.getElementById('newCustPinBanner');
+  if(banner)banner.style.display='flex';
+  showToast('📍 登録したい場所をタップしてください');
+}
+
+function cancelNewCustPinMode(){
+  window._newCustPinMode=false;
+  if(_leafletMap)_leafletMap.getContainer().style.cursor='';
+  const banner=document.getElementById('newCustPinBanner');
+  if(banner)banner.style.display='none';
 }
 
 function cancelPinSetMode(){
@@ -1794,6 +1969,12 @@ function showToast(msg,type=''){
   t.classList.add('show');
   _toastTimer=setTimeout(function(){t.classList.remove('show');_toastTimer=null;},3500);
 }
+
+// =================================================================
+// TOAST
+// =================================================================
+
+</script>
 </script>
 
 <script>
