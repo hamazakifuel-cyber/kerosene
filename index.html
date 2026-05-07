@@ -305,7 +305,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 </header>
 
 <!-- ===== CUSTOMERS TAB ===== -->
-<div class="view active" id="view-customers">
+<div class="view" id="view-customers">
   <div class="search-wrap">
     <span style="font-size:18px;color:var(--muted)">🔍</span>
     <input type="text" placeholder="顧客名・住所で検索..." id="searchInput" oninput="renderList()">
@@ -362,7 +362,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
   </div>
 </div>
 
-<div class="view" id="view-map">
+<div class="view active" id="view-map">
   <div style="background:var(--white);border-radius:var(--r);overflow:hidden;margin-bottom:10px;box-shadow:var(--shadow);">
     <div id="leafletMap" style="width:100%;height:450px;background:#e8f0fe;"></div>
     <div style="display:flex;gap:8px;padding:10px;flex-wrap:wrap;">
@@ -495,15 +495,15 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 
 <!-- BOTTOM TABS -->
 <div class="bottom-tabs">
-  <div class="btab active" onclick="switchTab('customers')"><span class="btab-ic">📋</span><span class="btab-lbl">メモ</span></div>
-  <div class="btab" onclick="switchTab('map')"><span class="btab-ic">🗺️</span><span class="btab-lbl">地図</span></div>
+  <div class="btab" onclick="switchTab('customers')"><span class="btab-ic">📋</span><span class="btab-lbl">顧客</span></div>
+  <div class="btab active" onclick="switchTab('map')"><span class="btab-ic">🗺️</span><span class="btab-lbl">地図</span></div>
   <div class="btab" onclick="switchTab('route')"><span class="btab-ic">🚛</span><span class="btab-lbl">ルート</span></div>
   <div class="btab" onclick="switchTab('export')"><span class="btab-ic">📊</span><span class="btab-lbl">集計</span></div>
   <div class="btab" onclick="switchTab('settings')"><span class="btab-ic">⚙️</span><span class="btab-lbl">設定</span></div>
 </div>
 
 <!-- FAB -->
-<button class="fab" id="fab" onclick="openCustomerModal()">＋</button>
+<button class="fab" id="fab" onclick="openCustomerModal()" style="display:none;">＋</button>
 
 <!-- CUSTOMER DETAIL SHEET -->
 <div class="sheet-overlay" id="detailSheet">
@@ -746,6 +746,8 @@ let curKana='全て';
   document.getElementById('expTo').value=now.toISOString().split('T')[0];
   updateRouteStats();
   document.getElementById('basePriceInput').value=basePrice;
+  // 初期画面は地図タブ → Leaflet初期化
+  setTimeout(function(){initLeafletMap();},300);
   migrateLatLng();
 })();
 
