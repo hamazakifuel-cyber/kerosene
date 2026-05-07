@@ -332,6 +332,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       </div>
     </div>
     <button class="btn btn-primary" style="width:100%;" onclick="saveBaseOffice()">💾 拠点を保存</button>
+    <button class="btn btn-outline" style="width:100%;margin-top:8px;" onclick="startBaseOfficePinMode()">🗺️ 地図上でピンを移動して位置を設定</button>
   </div>
   <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
     <div style="font-size:16px;font-weight:900;margin-bottom:4px;">⚙️ 基準単価設定</div>
@@ -382,6 +383,16 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
         <div style="font-size:11px;color:var(--muted);">登録したい場所をタップしてください</div>
       </div>
       <button class="btn btn-outline btn-sm" onclick="cancelNewCustPinMode()" style="color:var(--red);">キャンセル</button>
+    </div>
+    <!-- 拠点ピン移動バナー -->
+    <div id="baseOfficePinBanner" style="display:none;background:linear-gradient(135deg,rgba(21,101,192,.15),rgba(33,150,243,.05));border-top:2px solid var(--accent2);padding:12px 14px;align-items:center;gap:10px;">
+      <span style="font-size:20px;">🏯</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;color:var(--accent2);">拠点位置を設定中</div>
+        <div style="font-size:11px;color:var(--muted);">🏯ピンをドラッグして正しい位置に移動してください</div>
+      </div>
+      <button onclick="window._saveBaseOfficePin()" style="padding:8px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">💾 保存</button>
+      <button onclick="window._cancelBaseOfficePin()" style="padding:8px 10px;background:var(--s1);color:var(--muted);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;flex-shrink:0;">✕</button>
     </div>
     <!-- ピン移動中バナー -->
     <div id="pinMoveBanner" style="display:none;background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(180,83,9,.05));border-top:2px solid var(--yellow);padding:12px 14px;align-items:center;gap:10px;">
@@ -622,34 +633,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <div class="fg"><label class="fl">お名前</label><input class="fi" id="int_name" placeholder="臨時顧客名"></div>
       <div class="fg"><label class="fl">住所</label><input class="fi" id="int_addr" placeholder="住所"></div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-warning" style="flex:1;" onclick="addInterrupt()">⚡ 追加＆再最適化</button>
-        <button class="btn btn-outline" onclick="closeIntModal()">キャンセル</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- NUMPAD -->
-<div class="np-overlay" id="npOverlay">
-  <div class="np">
-    <div class="np-display">
-      <div><div class="np-lbl" id="np-lbl">入力</div><div class="np-val" id="np-val">0</div></div>
-      <div class="np-unit" id="np-unit"></div>
-    </div>
-    <div class="np-grid">
-      <div class="nk" onclick="nk('7')">7</div><div class="nk" onclick="nk('8')">8</div><div class="nk" onclick="nk('9')">9</div>
-      <div class="nk" onclick="nk('4')">4</div><div class="nk" onclick="nk('5')">5</div><div class="nk" onclick="nk('6')">6</div>
-      <div class="nk" onclick="nk('1')">1</div><div class="nk" onclick="nk('2')">2</div><div class="nk" onclick="nk('3')">3</div>
-      <div class="nk" onclick="nk('0')">0</div><div class="nk" onclick="nk('.')">.</div><div class="nk del" onclick="nk('del')">⌫</div>
-    </div>
-
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
+        <button class="btn btn
 // =================================================================
 // SETTINGS DATA
 // =================================================================
@@ -1647,6 +1631,65 @@ function resetAllPins(){
 
 // 地図ポップアップから顧客詳細を開く
 // ピンを移動モードにする（ポップアップから呼び出し）
+// =================================================================
+// 拠点ピン移動モード
+// =================================================================
+function startBaseOfficePinMode(){
+  // 地図タブに切り替え
+  switchTab('map');
+  setTimeout(function(){
+    const map=_leafletMap;
+    if(!map){showToast('⚠️ 地図が読み込まれていません','err');return;}
+    // 拠点マーカーがなければデフォルト位置に作成
+    if(!_baseMarker){
+      addBaseMarkerDefault(map);
+    }
+    // 拠点マーカーをドラッグ可能にする
+    if(_baseMarker&&_baseMarker.dragging){
+      _baseMarker.dragging.enable();
+      const el=_baseMarker.getElement();
+      if(el){
+        el.style.transform='scale(1.3)';
+        el.style.transition='transform .2s';
+        el.style.zIndex='1000';
+      }
+    }
+    // バナーを表示
+    const banner=document.getElementById('baseOfficePinBanner');
+    if(banner)banner.style.display='flex';
+    showToast('🏯 拠点ピンをドラッグして位置を調整してください');
+  },350);
+}
+
+window._saveBaseOfficePin=function(){
+  if(!_baseMarker)return;
+  const pos=_baseMarker.getLatLng();
+  // 座標を保存
+  localStorage.setItem('v4_officeLat',pos.lat);
+  localStorage.setItem('v4_officeLng',pos.lng);
+  // 設定画面の入力欄も更新
+  const latEl=document.getElementById('baseOfficeLat');
+  const lngEl=document.getElementById('baseOfficeLng');
+  if(latEl)latEl.value=pos.lat.toFixed(6);
+  if(lngEl)lngEl.value=pos.lng.toFixed(6);
+  // ドラッグ無効化・バナー非表示
+  window._cancelBaseOfficePin(false);
+  showToast('✅ 拠点位置を保存しました','ok');
+  // 地図を保存位置に移動
+  if(_leafletMap)_leafletMap.setView([pos.lat,pos.lng],14);
+};
+
+window._cancelBaseOfficePin=function(showMsg){
+  if(_baseMarker&&_baseMarker.dragging){
+    _baseMarker.dragging.disable();
+    const el=_baseMarker.getElement();
+    if(el){el.style.transform='';el.style.zIndex='';}
+  }
+  const banner=document.getElementById('baseOfficePinBanner');
+  if(banner)banner.style.display='none';
+  if(showMsg!==false)showToast('キャンセルしました');
+};
+
 window._dragTargetMarker=null;
 window._dragTargetId=null;
 
@@ -1952,6 +1995,31 @@ function resetAllData(){
 
 function migrateLatLng(){
   const coords={1:{lat:43.1105,lng:141.3421},2:{lat:43.1090,lng:141.3415},3:{lat:43.1023,lng:141.3354},4:{lat:43.1067,lng:141.3445},5:{lat:43.1143,lng:141.3432},6:{lat:43.1154,lng:141.3441},7:{lat:43.0978,lng:141.3198},8:{lat:43.0934,lng:141.5497}};
+  let changed=false;
+  C.forEach(function(c){if(!c.lat&&!c.lng&&coords[c.id]){c.lat=coords[c.id].lat;c.lng=coords[c.id].lng;changed=true;}});
+  if(changed)save();
+}
+
+// =================================================================
+// TOAST
+// =================================================================
+let _toastTimer=null;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  if(!t)return;
+  if(_toastTimer){clearTimeout(_toastTimer);_toastTimer=null;}
+  t.textContent=msg;
+  t.className='toast'+(type?' '+type:'');
+  t.onclick=function(){t.classList.remove('show');};
+  t.classList.add('show');
+  _toastTimer=setTimeout(function(){t.classList.remove('show');_toastTimer=null;},3500);
+}
+
+// =================================================================
+// TOAST
+// =================================================================
+
+141.3421},2:{lat:43.1090,lng:141.3415},3:{lat:43.1023,lng:141.3354},4:{lat:43.1067,lng:141.3445},5:{lat:43.1143,lng:141.3432},6:{lat:43.1154,lng:141.3441},7:{lat:43.0978,lng:141.3198},8:{lat:43.0934,lng:141.5497}};
   let changed=false;
   C.forEach(function(c){if(!c.lat&&!c.lng&&coords[c.id]){c.lat=coords[c.id].lat;c.lng=coords[c.id].lng;changed=true;}});
   if(changed)save();
