@@ -633,7 +633,14 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <div class="fg"><label class="fl">お名前</label><input class="fi" id="int_name" placeholder="臨時顧客名"></div>
       <div class="fg"><label class="fl">住所</label><input class="fi" id="int_addr" placeholder="住所"></div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn
+        
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
 // =================================================================
 // SETTINGS DATA
 // =================================================================
@@ -2026,32 +2033,14 @@ function showToast(msg,type=''){
 // TOAST
 // =================================================================
 
-141.3421},2:{lat:43.1090,lng:141.3415},3:{lat:43.1023,lng:141.3354},4:{lat:43.1067,lng:141.3445},5:{lat:43.1143,lng:141.3432},6:{lat:43.1154,lng:141.3441},7:{lat:43.0978,lng:141.3198},8:{lat:43.0934,lng:141.5497}};
-  let changed=false;
-  C.forEach(function(c){if(!c.lat&&!c.lng&&coords[c.id]){c.lat=coords[c.id].lat;c.lng=coords[c.id].lng;changed=true;}});
-  if(changed)save();
-}
-
-// =================================================================
-// TOAST
-// =================================================================
-let _toastTimer=null;
-function showToast(msg,type=''){
-  const t=document.getElementById('toast');
-  if(!t)return;
-  if(_toastTimer){clearTimeout(_toastTimer);_toastTimer=null;}
-  t.textContent=msg;
-  t.className='toast'+(type?' '+type:'');
-  t.onclick=function(){t.classList.remove('show');};
-  t.classList.add('show');
-  _toastTimer=setTimeout(function(){t.classList.remove('show');_toastTimer=null;},3500);
-}
-
 // =================================================================
 // TOAST
 // =================================================================
 
-</script>
+
+// =================================================================
+// TOAST
+// =================================================================
 </script>
 
 <script>
