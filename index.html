@@ -573,6 +573,10 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
         <div style="font-size:12px;color:var(--muted);">適用単価：<span id="f_price_display" style="color:var(--accent);font-weight:700;font-size:14px;">—</span></div>
         <input type="hidden" id="f_price">
         <input type="hidden" id="f_price_tier" value="6">
+        <div id="manualPriceWrap" style="display:none;margin-top:8px;">
+          <label class="fl">手動単価（円/L）</label>
+          <input class="fi" id="f_manual_price" placeholder="タップして入力" readonly onclick="openNp('f_manual_price','手動単価','円/L')" oninput="updatePriceDisplay(parseInt(document.getElementById('f_price_tier').value)||12, parseInt(this.value)||basePrice)">
+        </div>
       </div>
       <div class="fg" style="margin:0;"><label class="fl">電話番号</label><input class="fi" id="f_tel" placeholder="011-000-0000"></div>
       <div class="fg"><label class="fl">メモ</label><textarea class="fi" id="f_memo" rows="3" placeholder="給油口の場所・注意事項など" style="resize:none;"></textarea></div>
@@ -633,14 +637,54 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <div class="fg"><label class="fl">お名前</label><input class="fi" id="int_name" placeholder="臨時顧客名"></div>
       <div class="fg"><label class="fl">住所</label><input class="fi" id="int_addr" placeholder="住所"></div>
       <div style="display:flex;gap:8px;">
-        
+        <button class="btn btn-warning" style="flex:1;" onclick="addInterrupt()">📞 割込みに追加</button>
+        <button class="btn btn-outline" onclick="closeIntModal()">キャンセル</button>
+      </div>
     </div>
   </div>
+</div>
+
+<!-- NUMPAD OVERLAY -->
+<div class="np-overlay" id="npOverlay">
+  <div class="np-panel">
+    <div class="np-display">
+      <div>
+        <div class="np-lbl" id="np-lbl">入力</div>
+        <div class="np-val"><span id="np-val">0</span></div>
+      </div>
+      <div class="np-unit" id="np-unit"></div>
+    </div>
+    <div class="np-grid">
+      <button onclick="nk('1')">1</button><button onclick="nk('2')">2</button><button onclick="nk('3')">3</button>
+      <button onclick="nk('4')">4</button><button onclick="nk('5')">5</button><button onclick="nk('6')">6</button>
+      <button onclick="nk('7')">7</button><button onclick="nk('8')">8</button><button onclick="nk('9')">9</button>
+      <button onclick="nk('.')">.</button><button onclick="nk('0')">0</button><button onclick="nk('del')">⌫</button>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="confirmNp()">決定</button>
+      <button class="btn btn-outline" onclick="closeNp()">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO VIEWER -->
+<div class="photo-viewer" id="photoViewer">
+  <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
+  <img id="photoViewerImg" alt="写真プレビュー">
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
+// CDN読み込み失敗時の案内（Leafletが読めないと地図で止まるため）
+window.addEventListener('error', function(e){
+  try{
+    if(e && e.target && (e.target.tagName==='SCRIPT' || e.target.tagName==='LINK')){
+      console.warn('外部ファイルの読み込みに失敗しました:', e.target.src || e.target.href);
+    }
+  }catch(_){}
+}, true);
+
 // =================================================================
 // SETTINGS DATA
 // =================================================================
@@ -1364,6 +1408,11 @@ function renderRank(){
 // =================================================================
 function initLeafletMap(){
   const container=document.getElementById('leafletMap');
+  if(typeof L==='undefined'){
+    if(container){container.innerHTML='<div style="padding:16px;color:#ef4444;font-weight:700;">⚠️ 地図ライブラリ（Leaflet）が読み込めません。通信状態またはGitHub Pagesの公開URLを確認してください。</div>';}
+    showToast('⚠️ 地図ライブラリの読み込みに失敗しました','err');
+    return;
+  }
   if(!container)return;
   if(_leafletMap){_leafletMap.remove();_leafletMap=null;}
 
@@ -1945,7 +1994,8 @@ function selectPriceTier(idx){
   const mw=document.getElementById('manualPriceWrap');
   if(t&&t.special==='manual'){
     if(mw)mw.style.display='block';
-    const mp=parseInt(document.getElementById('f_manual_price').value)||basePrice;
+    const mpEl=document.getElementById('f_manual_price');
+    const mp=parseInt(mpEl?mpEl.value:'')||basePrice;
     document.getElementById('f_price').value=mp;
     updatePriceDisplay(idx,mp);
   } else {
