@@ -1664,19 +1664,26 @@ function startBaseOfficePinMode(){
 window._saveBaseOfficePin=function(){
   if(!_baseMarker)return;
   const pos=_baseMarker.getLatLng();
-  // 座標を保存
-  localStorage.setItem('v4_officeLat',pos.lat);
-  localStorage.setItem('v4_officeLng',pos.lng);
-  // 設定画面の入力欄も更新
+  const lat=pos.lat;
+  const lng=pos.lng;
+  // localStorage に保存
+  localStorage.setItem('v4_officeLat',lat);
+  localStorage.setItem('v4_officeLng',lng);
+  // JS変数にも反映
+  window._baseOfficeLat=lat;
+  window._baseOfficeLng=lng;
+  // 設定画面の入力欄を即時更新
   const latEl=document.getElementById('baseOfficeLat');
   const lngEl=document.getElementById('baseOfficeLng');
-  if(latEl)latEl.value=pos.lat.toFixed(6);
-  if(lngEl)lngEl.value=pos.lng.toFixed(6);
+  if(latEl)latEl.value=lat.toFixed(6);
+  if(lngEl)lngEl.value=lng.toFixed(6);
   // ドラッグ無効化・バナー非表示
   window._cancelBaseOfficePin(false);
-  showToast('✅ 拠点位置を保存しました','ok');
-  // 地図を保存位置に移動
-  if(_leafletMap)_leafletMap.setView([pos.lat,pos.lng],14);
+  showToast('✅ 拠点位置を保存しました。設定画面で確認できます','ok');
+  // 設定タブに戻る
+  setTimeout(function(){
+    switchTab('settings');
+  },800);
 };
 
 window._cancelBaseOfficePin=function(showMsg){
