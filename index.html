@@ -331,7 +331,8 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
         <div style="flex:1;"><label class="fl">経度</label><input class="fi" id="baseOfficeLng" placeholder="例：141.3421" type="number" step="0.0001"></div>
       </div>
     </div>
-    <button class="btn btn-primary" style="width:100%;" onclick="saveBaseOffice()">💾 拠点を保存</button>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="saveBaseOffice()">💾 拠点を保存（住所から自動取得）</button>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:4px;">住所入力のみで保存すると自動で座標を検索します<br>精度を上げたい場合は緯度・経度も入力してください</div>
   </div>
   <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
     <div style="font-size:16px;font-weight:900;margin-bottom:4px;">⚙️ 基準単価設定</div>
@@ -483,7 +484,8 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
         <div style="flex:1;"><label class="fl">経度（下の数字）</label><input class="fi" id="baseOfficeLng" placeholder="141.3421" type="number" step="0.000001"></div>
       </div>
     </div>
-    <button class="btn btn-primary" style="width:100%;" onclick="saveBaseOffice()">💾 拠点を保存</button>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="saveBaseOffice()">💾 拠点を保存（住所から自動取得）</button>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:4px;">住所入力のみで保存すると自動で座標を検索します<br>精度を上げたい場合は緯度・経度も入力してください</div>
   </div>
   <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
     <div style="font-size:16px;font-weight:900;margin-bottom:4px;">⚙️ 基準単価設定</div>
@@ -1652,24 +1654,55 @@ function cancelPinSetMode(){
 // SETTINGS
 // =================================================================
 function saveBaseOffice(){
-  const name=document.getElementById('baseOfficeName').value.trim();
-  const addr=document.getElementById('baseOfficeAddr').value.trim();
-  const lat=parseFloat(document.getElementById('baseOfficeLat').value);
-  const lng=parseFloat(document.getElementById('baseOfficeLng').value);
+  var name=document.getElementById('baseOfficeName').value.trim();
+  var addr=document.getElementById('baseOfficeAddr').value.trim();
+  var lat=parseFloat(document.getElementById('baseOfficeLat').value);
+  var lng=parseFloat(document.getElementById('baseOfficeLng').value);
   if(!addr){showToast('⚠️ 住所を入力してください','err');return;}
-  baseOfficeName=name;baseOfficeAddr=addr;
-  localStorage.setItem('v4_officeName',name);localStorage.setItem('v4_officeAddr',addr);
+
+  baseOfficeName=name;
+  baseOfficeAddr=addr;
+  localStorage.setItem('v4_officeName',name);
+  localStorage.setItem('v4_officeAddr',addr);
+
   if(!isNaN(lat)&&!isNaN(lng)){
-    localStorage.setItem('v4_officeLat',lat);localStorage.setItem('v4_officeLng',lng);
+    // 緯度経度が直接入力されている場合
+    localStorage.setItem('v4_officeLat',lat);
+    localStorage.setItem('v4_officeLng',lng);
     if(_leafletMap)addBaseMarker(_leafletMap,lat,lng);
     showToast('✅ 拠点を保存しました','ok');
   } else {
-    localStorage.removeItem('v4_officeLat');localStorage.removeItem('v4_officeLng');
-    if(_leafletMap)geocodeAndAddBase(_leafletMap);
-    showToast('✅ 拠点住所を保存しました','ok');
+    // 住所から緯度経度を検索
+    showToast('🔍 住所を検索中...');
+    var addrClean=addr.replace(/〒\d{3}-?\d{4}\s*/g,'').trim();
+    var q=encodeURIComponent(addrClean);
+    fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q='+q)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        if(data&&data[0]&&data[0].geometry){
+          var coords=data[0].geometry.coordinates;
+          var foundLat=coords[1];
+          var foundLng=coords[0];
+          // 取得した座標を保存・表示
+          localStorage.setItem('v4_officeLat',foundLat);
+          localStorage.setItem('v4_officeLng',foundLng);
+          // 設定画面の入力欄にも反映
+          var latEl=document.getElementById('baseOfficeLat');
+          var lngEl=document.getElementById('baseOfficeLng');
+          if(latEl)latEl.value=foundLat.toFixed(6);
+          if(lngEl)lngEl.value=foundLng.toFixed(6);
+          // 地図に反映
+          if(_leafletMap)addBaseMarker(_leafletMap,foundLat,foundLng);
+          showToast('✅ 住所から拠点位置を設定しました','ok');
+        } else {
+          showToast('⚠️ 住所が見つかりません。緯度・経度を直接入力してください','err');
+        }
+      })
+      .catch(function(){
+        showToast('⚠️ 住所検索に失敗しました。緯度・経度を直接入力してください','err');
+      });
   }
 }
-
 function saveBasePrice(){
   const val=parseInt(document.getElementById('basePriceInput').value)||0;
   if(val<50||val>500){showToast('⚠️ 単価は50〜500円で入力してください','err');return;}
