@@ -724,18 +724,32 @@ window._openDetailFromMap=function(id){
 var _dragTargetMarker=null,_dragTargetId=null;
 window._startDragMode=function(id){
   if(!_leafletMap)return;
+  // 地図のドラッグ・ズームを無効化（ピン移動中の誤操作防止）
+  _leafletMap.dragging.disable();
+  _leafletMap.touchZoom.disable();
+  _leafletMap.doubleClickZoom.disable();
+  _leafletMap.scrollWheelZoom.disable();
+  // 全ピンを半透明・操作不可に
   _leafletMap.eachLayer(function(l){
     if(l._isCustomerPin){
       l.closePopup();if(l.dragging)l.dragging.disable();
-      var el=l.getElement();if(el){el.style.opacity='0.35';el.style.pointerEvents='none';}
+      var el=l.getElement();
+      if(el){el.style.opacity='0.3';el.style.pointerEvents='none';el.style.transition='opacity .2s';}
     }
   });
+  // 対象ピンのみドラッグ可能・強調
   _leafletMap.eachLayer(function(l){
     if(l._isCustomerPin&&l._customerId===id){
       if(l.dragging)l.dragging.enable();
       _dragTargetMarker=l;_dragTargetId=id;
       var el=l.getElement();
-      if(el){el.style.opacity='1';el.style.transform='scale(1.3)';el.style.zIndex='1000';el.style.pointerEvents='auto';}
+      if(el){
+        el.style.opacity='1';
+        el.style.transform='scale(1.5)';
+        el.style.zIndex='1000';
+        el.style.pointerEvents='auto';
+        el.style.filter='drop-shadow(0 0 8px rgba(33,150,243,.8))';
+      }
     }
   });
   var banner=document.getElementById('pinMoveBanner');
@@ -743,7 +757,7 @@ window._startDragMode=function(id){
   var c=C.find(function(x){return x.id===id;});
   if(nameEl&&c)nameEl.textContent=c.name+'さんのピンを移動中';
   if(banner)banner.style.display='flex';
-  showToast('✋ ピンをドラッグして「保存」を押してください');
+  showToast('✋ ピンのみドラッグできます。「保存」で確定してください');
 };
 window._savePinMove=function(){
   var id=_dragTargetId;var marker=_dragTargetMarker;
@@ -756,11 +770,20 @@ window._savePinMove=function(){
 };
 window._cancelPinMove=function(){
   if(_leafletMap){
+    // 地図操作を再有効化
+    _leafletMap.dragging.enable();
+    _leafletMap.touchZoom.enable();
+    _leafletMap.doubleClickZoom.enable();
+    _leafletMap.scrollWheelZoom.enable();
     _leafletMap.eachLayer(function(l){
       if(l._isCustomerPin){
         if(l.dragging)l.dragging.disable();
         var el=l.getElement();
-        if(el){el.style.opacity='1';el.style.transform='';el.style.pointerEvents='auto';el.style.zIndex='';}
+        if(el){
+          el.style.opacity='1';el.style.transform='';
+          el.style.pointerEvents='auto';el.style.zIndex='';
+          el.style.filter='';
+        }
       }
     });
   }
@@ -787,9 +810,24 @@ function startBaseOfficePinMode(){
   setTimeout(function(){
     var map=_leafletMap;if(!map)return;
     if(!_baseMarker)addBaseMarkerDefault(map);
-    if(_baseMarker&&_baseMarker.dragging)_baseMarker.dragging.enable();
+    // 地図操作を無効化（ピン移動中の誤操作防止）
+    map.dragging.disable();
+    map.touchZoom.disable();
+    map.doubleClickZoom.disable();
+    map.scrollWheelZoom.disable();
+    // 拠点ピンをドラッグ可能に
+    if(_baseMarker&&_baseMarker.dragging){
+      _baseMarker.dragging.enable();
+      var el=_baseMarker.getElement();
+      if(el){
+        el.style.transform='scale(1.4)';
+        el.style.filter='drop-shadow(0 0 10px rgba(21,101,192,.9))';
+        el.style.zIndex='1000';
+        el.style.transition='transform .2s';
+      }
+    }
     var banner=document.getElementById('baseOfficePinBanner');if(banner)banner.style.display='flex';
-    showToast('🏯 拠点ピンをドラッグして位置を調整してください');
+    showToast('🏯 拠点ピンのみドラッグできます。「保存」で確定してください');
   },350);
 }
 window._saveBaseOfficePin=function(){
@@ -803,7 +841,18 @@ window._saveBaseOfficePin=function(){
   setTimeout(function(){switchTab('settings');},600);
 };
 window._cancelBaseOfficePin=function(showMsg){
-  if(_baseMarker&&_baseMarker.dragging)_baseMarker.dragging.disable();
+  if(_leafletMap){
+    // 地図操作を再有効化
+    _leafletMap.dragging.enable();
+    _leafletMap.touchZoom.enable();
+    _leafletMap.doubleClickZoom.enable();
+    _leafletMap.scrollWheelZoom.enable();
+  }
+  if(_baseMarker){
+    if(_baseMarker.dragging)_baseMarker.dragging.disable();
+    var el=_baseMarker.getElement();
+    if(el){el.style.transform='';el.style.filter='';el.style.zIndex='';}
+  }
   var banner=document.getElementById('baseOfficePinBanner');if(banner)banner.style.display='none';
   if(showMsg!==false)showToast('キャンセルしました');
 };
