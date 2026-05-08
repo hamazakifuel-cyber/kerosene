@@ -716,6 +716,9 @@ window._openDetailFromMap=function(id){
   setTimeout(function(){openDetailSheet(id);},200);
 };
 var _dragTargetMarker=null,_dragTargetId=null;
+function startDragMode(id){
+  window._startDragMode(id);
+}
 window._startDragMode=function(id){
   if(!_leafletMap)return;
   // 地図のドラッグ・ズームを無効化（ピン移動中の誤操作防止）
@@ -1597,19 +1600,73 @@ function geocodeSequential(list,idx,map){
 }
 
 function addCustomerPin(c,map){
-  const d=dSince(c.lastDate);
-  const col=pinColor(d);
-  const shape=c.type==='home'?'50%':c.type==='business'?'0% 50% 50% 50%':'4px';
-  const typeIcon=c.type==='home'?'🏠':c.type==='business'?'🏢':'🏭';
-  const icon=L.divIcon({
-    html:'<div style="width:32px;height:32px;border-radius:'+shape+';background:'+col+';border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:13px;">'+typeIcon+'</div>',
-    className:'',iconSize:[32,32],iconAnchor:[16,16]
+  var d=dSince(c.lastDate);
+  var col=pinColor(d);
+  var shape=c.type==='home'?'50%':c.type==='business'?'0% 50% 50% 50%':'4px';
+  var typeIcon=c.type==='home'?'🏠':c.type==='business'?'🏢':'🏭';
+  var icon=L.divIcon({
+    html:'<div style="width:36px;height:36px;border-radius:'+shape+';background:'+col+';border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;">'+typeIcon+'</div>',
+    className:'',iconSize:[36,36],iconAnchor:[18,18]
   });
-  const marker=L.marker([c.lat,c.lng],{icon:icon}).addTo(map);
+  var dLabel=d===999?'未記録':d+'日前';
+  var marker=L.marker([c.lat,c.lng],{icon:icon,draggable:false}).addTo(map);
   marker._isCustomerPin=true;
-  const dLabel=d===999?'未記録':d+'日前';
-  marker.bindPopup('<div style="min-width:150px;"><b style="font-size:14px;">'+c.name+'</b><br><span style="font-size:11px;color:#666;">'+c.addr.replace(/〒\S+\s*/,'')+'</span><br><span style="color:'+col+';font-size:11px;font-weight:700;">最終給油：'+dLabel+'</span><br><span style="font-size:11px;">¥'+calcCustomerPrice(c)+'/L</span></div>');
+  marker._customerId=c.id;
+
+  // ポップアップ（顧客詳細ボタン＋位置修正ボタン）
+  var popup=document.createElement('div');
+  popup.style.cssText='min-width:170px;font-family:sans-serif;';
+
+  var nameEl=document.createElement('b');
+  nameEl.style.fontSize='14px';nameEl.textContent=c.name;
+  popup.appendChild(nameEl);
+  popup.appendChild(document.createElement('br'));
+
+  var addrEl=document.createElement('span');
+  addrEl.style.cssText='font-size:11px;color:#666;';
+  addrEl.textContent=c.addr.replace(/〒\S+\s*/,'');
+  popup.appendChild(addrEl);
+  popup.appendChild(document.createElement('br'));
+
+  var dayEl=document.createElement('span');
+  dayEl.style.cssText='color:'+col+';font-size:11px;font-weight:700;';
+  dayEl.textContent='最終給油：'+dLabel;
+  popup.appendChild(dayEl);
+  popup.appendChild(document.createElement('br'));
+
+  var priceEl=document.createElement('span');
+  priceEl.style.fontSize='11px';
+  priceEl.textContent='¥'+calcCustomerPrice(c)+'/L';
+  popup.appendChild(priceEl);
+
+  // ボタン行
+  var btnRow=document.createElement('div');
+  btnRow.style.cssText='display:flex;gap:6px;margin-top:10px;';
+
+  var btnDetail=document.createElement('button');
+  btnDetail.style.cssText='flex:1;padding:8px 4px;background:#2196f3;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;';
+  btnDetail.textContent='📋 顧客詳細';
+  btnDetail.onclick=function(){
+    if(_leafletMap)_leafletMap.closePopup();
+    switchTab('customers');
+    setTimeout(function(){openDetailSheet(c.id);},200);
+  };
+
+  var btnMove=document.createElement('button');
+  btnMove.style.cssText='flex:1;padding:8px 4px;background:#f59e0b;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;';
+  btnMove.textContent='✋ 位置修正';
+  btnMove.onclick=function(){
+    if(_leafletMap)_leafletMap.closePopup();
+    startDragMode(c.id);
+  };
+
+  btnRow.appendChild(btnDetail);
+  btnRow.appendChild(btnMove);
+  popup.appendChild(btnRow);
+
+  marker.bindPopup(popup,{maxWidth:220});
 }
+
 
 function locateMe(){
   const map=_leafletMap;
