@@ -40,11 +40,11 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 .h-date{font-size:12px;color:var(--muted);text-align:right;line-height:1.5;}
 
 /* BOTTOM TABS */
-.bottom-tabs{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);display:flex;z-index:100;box-shadow:0 -2px 12px rgba(0,0,0,.06);}
-.btab{flex:1;padding:10px 6px;text-align:center;cursor:pointer;transition:all .2s;color:var(--muted);}
+.bottom-tabs{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);display:flex;z-index:100;box-shadow:0 -2px 12px rgba(0,0,0,.06);height:72px;}
+.btab{flex:1;padding:8px 4px;text-align:center;cursor:pointer;transition:all .2s;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
 .btab.active{color:var(--accent);}
-.btab-ic{font-size:22px;display:block;margin-bottom:2px;}
-.btab-lbl{font-size:10px;font-weight:700;}
+.btab-ic{font-size:28px;display:block;margin-bottom:2px;}
+.btab-lbl{font-size:14px;font-weight:700;}
 
 /* VIEWS */
 .view{display:none;padding:12px;}
@@ -372,12 +372,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <button class="btn btn-outline btn-sm" onclick="locateMe()">📡 現在地</button>
       <button class="btn btn-success btn-sm" style="width:100%;" onclick="startNewCustomerPinMode()">📍 地図をタップして新規顧客を登録</button>
     </div>
-    <div id="baseOfficePinBanner" style="display:none;background:rgba(21,101,192,.1);border-top:2px solid var(--accent2);padding:12px;align-items:center;gap:10px;">
-      <span style="font-size:20px;">🏯</span>
-      <div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--accent2);">拠点位置を設定中</div><div style="font-size:11px;color:var(--muted);">🏯ピンをドラッグして移動してください</div></div>
-      <button onclick="window._saveBaseOfficePin()" style="padding:8px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">💾 保存</button>
-      <button onclick="window._cancelBaseOfficePin()" style="padding:8px 10px;background:var(--s1);color:var(--muted);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;">✕</button>
-    </div>
+
     <div id="pinMoveBanner" style="display:none;background:rgba(245,158,11,.1);border-top:2px solid var(--yellow);padding:12px;align-items:center;gap:10px;">
       <span style="font-size:20px;">✋</span>
       <div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--yellow);" id="pinMoveTargetName">ピンを移動中</div><div style="font-size:11px;color:var(--muted);">ドラッグで位置を調整してください</div></div>
@@ -481,18 +476,19 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
   <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
     <div style="font-size:16px;font-weight:900;margin-bottom:4px;">🏯 拠点設定</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">地図の中心となる拠点を設定します</div>
-    <div class="fg"><label class="fl">拠点名</label><input class="fi" id="baseOfficeName" placeholder="会社"></div>
+    <div class="fg"><label class="fl">拠点名</label><input class="fi" id="baseOfficeName" placeholder="会社名"></div>
     <div class="fg"><label class="fl">住所</label><input class="fi" id="baseOfficeAddr" placeholder="北海道札幌市..."></div>
-    <div style="background:rgba(33,150,243,.08);border:1px solid var(--accent);border-radius:8px;padding:12px;margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">📍 緯度・経度</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Googleマップで拠点を長押し→座標をコピーして入力、または下のボタンで地図上から設定</div>
+    <div style="background:rgba(33,150,243,.08);border:1px solid var(--accent);border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px;">📍 緯度・経度（必須）</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6;">
+        Googleマップで拠点を開き<br>ピンを<b>長押し</b>すると座標が表示されます<br>例：<b>43.1234, 141.3456</b>
+      </div>
       <div style="display:flex;gap:8px;">
-        <div style="flex:1;"><label class="fl">緯度</label><input class="fi" id="baseOfficeLat" placeholder="43.1105" type="number" step="0.0001"></div>
-        <div style="flex:1;"><label class="fl">経度</label><input class="fi" id="baseOfficeLng" placeholder="141.3421" type="number" step="0.0001"></div>
+        <div style="flex:1;"><label class="fl">緯度（上の数字）</label><input class="fi" id="baseOfficeLat" placeholder="43.1105" type="number" step="0.000001"></div>
+        <div style="flex:1;"><label class="fl">経度（下の数字）</label><input class="fi" id="baseOfficeLng" placeholder="141.3421" type="number" step="0.000001"></div>
       </div>
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="saveBaseOffice()">💾 拠点を保存</button>
-    <button class="btn btn-outline" style="width:100%;" onclick="startBaseOfficePinMode()">🗺️ 地図上でピンを移動して位置を設定</button>
+    <button class="btn btn-primary" style="width:100%;" onclick="saveBaseOffice()">💾 拠点を保存</button>
   </div>
   <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
     <div style="font-size:16px;font-weight:900;margin-bottom:4px;">⚙️ 基準単価設定</div>
@@ -803,57 +799,6 @@ function cancelNewCustPinMode(){
   if(_leafletMap)_leafletMap.getContainer().style.cursor='';
   var banner=document.getElementById('newCustPinBanner');if(banner)banner.style.display='none';
 }
-function startBaseOfficePinMode(){
-  switchTab('map');
-  setTimeout(function(){
-    var map=_leafletMap;if(!map)return;
-    if(!_baseMarker)addBaseMarkerDefault(map);
-    // 地図操作を無効化（ピン移動中の誤操作防止）
-    map.dragging.disable();
-    map.touchZoom.disable();
-    map.doubleClickZoom.disable();
-    map.scrollWheelZoom.disable();
-    // 拠点ピンをドラッグ可能に
-    if(_baseMarker&&_baseMarker.dragging){
-      _baseMarker.dragging.enable();
-      var el=_baseMarker.getElement();
-      if(el){
-        el.style.transform='scale(1.4)';
-        el.style.filter='drop-shadow(0 0 10px rgba(21,101,192,.9))';
-        el.style.zIndex='1000';
-        el.style.transition='transform .2s';
-      }
-    }
-    var banner=document.getElementById('baseOfficePinBanner');if(banner)banner.style.display='flex';
-    showToast('🏯 拠点ピンのみドラッグできます。「保存」で確定してください');
-  },350);
-}
-window._saveBaseOfficePin=function(){
-  if(!_baseMarker)return;
-  var pos=_baseMarker.getLatLng();
-  localStorage.setItem('v4_officeLat',pos.lat);localStorage.setItem('v4_officeLng',pos.lng);
-  var latEl=document.getElementById('baseOfficeLat');var lngEl=document.getElementById('baseOfficeLng');
-  if(latEl)latEl.value=pos.lat.toFixed(6);if(lngEl)lngEl.value=pos.lng.toFixed(6);
-  window._cancelBaseOfficePin(false);
-  showToast('✅ 拠点位置を保存しました','ok');
-  setTimeout(function(){switchTab('settings');},600);
-};
-window._cancelBaseOfficePin=function(showMsg){
-  if(_leafletMap){
-    // 地図操作を再有効化
-    _leafletMap.dragging.enable();
-    _leafletMap.touchZoom.enable();
-    _leafletMap.doubleClickZoom.enable();
-    _leafletMap.scrollWheelZoom.enable();
-  }
-  if(_baseMarker){
-    if(_baseMarker.dragging)_baseMarker.dragging.disable();
-    var el=_baseMarker.getElement();
-    if(el){el.style.transform='';el.style.filter='';el.style.zIndex='';}
-  }
-  var banner=document.getElementById('baseOfficePinBanner');if(banner)banner.style.display='none';
-  if(showMsg!==false)showToast('キャンセルしました');
-};
 
 // =================================================================
 // BACKUP & RESTORE
