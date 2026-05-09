@@ -187,7 +187,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 
 /* ROUTE */
 .route-card{background:var(--white);border-radius:var(--r);padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);border:1px solid var(--border);}
-.route-card.done{opacity:.5;}
+.route-card.done{background:#e0e0e0;opacity:1;}
 .route-card.urgent{border-left:4px solid var(--red);}
 .route-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;border:2.5px solid;flex-shrink:0;}
 .route-info{flex:1;min-width:0;}
@@ -1209,13 +1209,121 @@ function rebuildFromCurrent(){
   renderRouteList();renderMap();showToast('🔄 再最適化しました','ok');
 }
 
-function markDone(id){completedIds.add(id);renderRouteList();updateRouteStats();openFuelModal(id);}
+function openFuelModalFromRoute(id){
+  // 給油記録入力→完了後にrouteをmarkDone
+  window._fuelCallbackId=id;
+  openFuelModal(id);
+}
+
+function markDone(id){completedIds.add(id);renderRouteList();updateRouteStats();}
+function setupRouteDrag(){
+  const list=document.getElementById('routeList');
+  if(!list)return;
+  let dragIdx=null;
+  let dragEl=null;
+  let placeholder=null;
+  let startY=0;
+  let currentY=0;
+
+  function getCardIndex(el){
+    const cards=[...list.querySelectorAll('.route-card')];
+    return cards.indexOf(el);
+  }
+
+  function onTouchStart(e){
+    const handle=e.target.closest('.drag-handle');
+    if(!handle)return;
+    dragEl=handle.closest('.route-card');
+    if(!dragEl)return;
+    const id=parseInt(dragEl.dataset.id);
+    if(completedIds.has(id)){showToast('⚠️ 完了済みは移動できません','err');return;}
+    dragIdx=getCardIndex(dragEl);
+    startY=e.touches[0].clientY;
+    currentY=startY;
+    dragEl.style.opacity='0.5';
+    dragEl.style.transform='scale(1.02)';
+    dragEl.style.zIndex='100';
+    dragEl.style.position='relative';
+    dragEl.style.boxShadow='0 8px 24px rgba(0,0,0,.2)';
+    e.preventDefault();
+  }
+
+  function onTouchMove(e){
+    if(!dragEl)return;
+    currentY=e.touches[0].clientY;
+    const dy=currentY-startY;
+    dragEl.style.transform='scale(1.02) translateY('+dy+'px)';
+
+    // どのカードの上にいるか判定
+    const cards=[...list.querySelectorAll('.route-card')];
+    const dragRect=dragEl.getBoundingClientRect();
+    const dragCenter=dragRect.top+dragRect.height/2+dy;
+
+    let targetIdx=dragIdx;
+    cards.forEach((card,i)=>{
+      if(card===dragEl)return;
+      const rect=card.getBoundingClientRect();
+      const center=rect.top+rect.height/2;
+      if(dragCenter>center)targetIdx=i;
+    });
+
+    if(targetIdx!==dragIdx){
+      // ルート配列を更新してハイライト
+      const tmp=routeOrder[dragIdx];
+      routeOrder.splice(dragIdx,1);
+      routeOrder.splice(targetIdx,0,tmp);
+      dragIdx=targetIdx;
+      startY=currentY;
+      // 他カードを再レンダリングしてドラッグ中のカードは維持
+      const allCards=[...list.querySelectorAll('.route-card')];
+      allCards.forEach((c,i)=>{
+        if(c!==dragEl){
+          c.style.transform='';
+          c.style.opacity='1';
+        }
+      });
+    }
+    e.preventDefault();
+  }
+
+  function onTouchEnd(e){
+    if(!dragEl)return;
+    dragEl.style.opacity='1';
+    dragEl.style.transform='';
+    dragEl.style.zIndex='';
+    dragEl.style.position='';
+    dragEl.style.boxShadow='';
+    dragEl=null;
+    dragIdx=null;
+    renderRouteList();
+    updateRouteStats();
+  }
+
+  list.addEventListener('touchstart',onTouchStart,{passive:false});
+  list.addEventListener('touchmove',onTouchMove,{passive:false});
+  list.addEventListener('touchend',onTouchEnd);
+}
+
+function moveRouteItem(idx,dir){
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=routeOrder.length)return;
+  // 完了済みは移動不可
+  const c=routeOrder[idx];
+  if(completedIds.has(c.id)){showToast('⚠️ 完了済みの顧客は移動できません','err');return;}
+  // swap
+  const tmp=routeOrder[idx];
+  routeOrder[idx]=routeOrder[newIdx];
+  routeOrder[newIdx]=tmp;
+  renderRouteList();
+  updateRouteStats();
+}
+
 function removeFromRoute(id){routeOrder=routeOrder.filter(c=>c.id!==id);renderRouteList();renderMap();}
 
 function renderRouteList(){
   const el=document.getElementById('routeList');
   if(!routeOrder.length){
-    el.innerHTML=`<div class="empty"><div class="empty-ic">🗺️</div><p>「ルート最適化」をタップして<br>本日の配達順を作成</p></div>`;
+    el.innerHTML='<div class="empty"><div class="empty-ic">🗺️</div><p>「ルート最適化」をタップして<br>本日の配達順を作成</p></div>';
     return;
   }
   el.innerHTML=routeOrder.map((c,i)=>{
@@ -1223,13 +1331,18 @@ function renderRouteList(){
     const d=dSince(c.lastDate);
     const col=pinColor(d);
     const isInt=interruptIds.has(c.id);
-    return`<div class="route-card ${d>21?'urgent':''} ${done?'done':''}">
+    return`<div class="route-card ${d>21?'urgent':''} ${done?'done':''}" data-id="${c.id}" style="${done?'background:#e0e0e0;':''}">
+      <div class="drag-handle" data-idx="${i}" style="width:32px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;padding:8px 4px;gap:3px;touch-action:none;">
+        <div style="width:18px;height:2px;background:#aaa;border-radius:2px;"></div>
+        <div style="width:18px;height:2px;background:#aaa;border-radius:2px;"></div>
+        <div style="width:18px;height:2px;background:#aaa;border-radius:2px;"></div>
+      </div>
       <div class="route-num" style="color:${col};border-color:${col};${done?'background:rgba(34,197,94,.1);':''}">
         ${done?'✓':i+1}
       </div>
       <div class="route-info">
         <div class="route-name">${isInt?'📞 ':''}${c.name}</div>
-        <div class="route-addr" style="white-space:normal;font-size:12px;">${c.addr.replace(/〒\d{3}-\d{4}\s*/,'')}</div>
+        <div class="route-addr" style="white-space:normal;font-size:12px;">${c.addr.replace(/〒\d{3}-?\d{4}\s*/g,'')}</div>
         <div class="route-tags">
           ${statusTag(d)}
           <span class="tag tag-m">${typeShape(c.type)} ${typeName(c.type)}</span>
@@ -1238,11 +1351,13 @@ function renderRouteList(){
         </div>
       </div>
       <div class="route-acts">
-        ${!done?`<button class="ic-btn" onclick="markDone(${c.id})" style="color:var(--green);">✅</button>`:''}
+        ${done?`<button onclick="openFuelModalFromRoute(${c.id})" style="background:var(--orange);color:#fff;border-radius:8px;padding:5px 10px;font-size:13px;font-weight:900;border:none;cursor:pointer;">修正</button>`:`<button onclick="openFuelModalFromRoute(${c.id})" style="background:var(--green);color:#fff;border-radius:8px;padding:5px 10px;font-size:13px;font-weight:900;border:none;cursor:pointer;">入力</button>`}
         <button class="ic-btn" onclick="removeFromRoute(${c.id})" style="color:var(--red);">✕</button>
       </div>
     </div>`;
   }).join('');
+  // ドラッグ並び替え設定
+  setupRouteDrag();
 }
 
 function updateRouteStats(){
@@ -1360,17 +1475,34 @@ function openFuelModal(id){
   document.getElementById('fm-total').textContent='¥ 0';
   document.getElementById('fuelModal').classList.add('open');
 }
-function closeFuelModal(){document.getElementById('fuelModal').classList.remove('open');}
+function closeFuelModal(){
+  document.getElementById('fuelModal').classList.remove('open');
+  // ×で閉じた場合はコールバックをリセット（入力未完了）
+  window._fuelCallbackId=null;
+}
 
 function saveFuel(){
   const liter=parseFloat(document.getElementById('f_liter').value)||0;
   if(liter<=0){showToast('⚠️ 給油量を入力してください','err');return;}
   const c=C.find(x=>x.id===fuelTargetId);
   const today=new Date().toISOString().split('T')[0];
-  FH.push({id:Date.now(),cid:fuelTargetId,date:today,liter,price:calcCustomerPrice(c),note:document.getElementById('f_fnote').value});
+  // 同日に既存記録があれば更新、なければ新規追加
+  const todayRec=FH.find(h=>h.cid===fuelTargetId&&h.date===today);
+  if(todayRec){
+    todayRec.liter=liter;
+    todayRec.price=calcCustomerPrice(c);
+    todayRec.note=document.getElementById('f_fnote').value;
+  } else {
+    FH.push({id:Date.now(),cid:fuelTargetId,date:today,liter,price:calcCustomerPrice(c),note:document.getElementById('f_fnote').value});
+  }
   c.lastDate=today;
   completedIds.add(fuelTargetId);
   save();closeFuelModal();renderList();renderRouteList();updateRouteStats();renderMap();
+  // ルートから呼び出された場合はルートタブに戻る
+  if(window._fuelCallbackId&&window._fuelCallbackId===fuelTargetId){
+    window._fuelCallbackId=null;
+    setTimeout(function(){switchTab('route');},300);
+  }
   showToast(`✅ ${c.name} ${liter}L 記録完了`,'ok');
 }
 
