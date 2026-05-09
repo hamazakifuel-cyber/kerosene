@@ -1452,12 +1452,31 @@ function initLeafletMap(){
   const container=document.getElementById('leafletMap');
   if(!container)return;
   if(_leafletMap){_leafletMap.remove();_leafletMap=null;}
-  const map=L.map('leafletMap',{center:[43.108,141.341],zoom:13,zoomControl:true});
+
+  // 拠点座標があればそれを初期中心に、なければGPS取得後に設定
+  const sLat=parseFloat(localStorage.getItem('v4_officeLat'));
+  const sLng=parseFloat(localStorage.getItem('v4_officeLng'));
+  const initLat=!isNaN(sLat)?sLat:43.108;
+  const initLng=!isNaN(sLng)?sLng:141.341;
+  const initZoom=!isNaN(sLat)?14:13;
+
+  const map=L.map('leafletMap',{center:[initLat,initLng],zoom:initZoom,zoomControl:true});
   _leafletMap=map;
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19
   }).addTo(map);
+
   map.on('click',function(e){
+    if(window._newCustPinMode){
+      window._newCustPinMode=false;
+      map.getContainer().style.cursor='';
+      const nb=document.getElementById('newCustPinBanner');if(nb)nb.style.display='none';
+      window._pendingLat=e.latlng.lat;window._pendingLng=e.latlng.lng;
+      switchTab('customers');
+      setTimeout(function(){openCustomerModal(null);},200);
+      return;
+    }
     if(!window._mapEditMode)return;
     const c=window._mapEditCustomer;if(!c)return;
     c.lat=e.latlng.lat;c.lng=e.latlng.lng;save();
@@ -1467,17 +1486,47 @@ function initLeafletMap(){
     const banner=document.getElementById('pinSetBanner');if(banner)banner.style.display='none';
     showToast('✅ '+c.name+'さんのピンを保存しました','ok');
   });
-  const sLat=parseFloat(localStorage.getItem('v4_officeLat'));
-  const sLng=parseFloat(localStorage.getItem('v4_officeLng'));
-  if(baseOfficeAddr&&!isNaN(sLat)&&!isNaN(sLng)){
+
+  // 拠点マーカー
+  if(!isNaN(sLat)&&!isNaN(sLng)){
     addBaseMarker(map,sLat,sLng);
   } else if(baseOfficeAddr){
     geocodeAndAddBase(map);
   } else {
     addBaseMarkerDefault(map);
   }
-  locateMe();
-  setTimeout(function(){updateLeafletPins();},600);
+
+  // GPS取得：成功したら現在地に移動・青丸表示
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      function(pos){
+        const lat=pos.coords.latitude;
+        const lng=pos.coords.longitude;
+        const acc=pos.coords.accuracy;
+        if(_gpsMarker)_gpsMarker.remove();
+        if(_gpsCircle)_gpsCircle.remove();
+        const gIcon=L.divIcon({
+          html:'<div style="width:18px;height:18px;border-radius:50%;background:#2196f3;border:3px solid white;box-shadow:0 2px 8px rgba(33,150,243,.8);"></div>',
+          className:'',iconSize:[18,18],iconAnchor:[9,9]
+        });
+        _gpsMarker=L.marker([lat,lng],{icon:gIcon}).addTo(map).bindPopup('📍 現在地');
+        _gpsCircle=L.circle([lat,lng],{radius:acc,color:'#2196f3',fillColor:'#2196f3',fillOpacity:0.1,weight:1}).addTo(map);
+        // 拠点が未設定の場合のみ現在地に移動
+        if(isNaN(sLat)||isNaN(sLng)){
+          map.setView([lat,lng],15);
+        }
+        showToast('📡 現在地を表示しました','ok');
+      },
+      function(err){
+        if(err.code===1){showGpsPermissionModal();}
+        // GPS失敗しても地図は表示済みなのでエラーは出さない
+      },
+      {enableHighAccuracy:true,timeout:10000,maximumAge:0}
+    );
+  }
+
+  // 顧客ピン表示
+  setTimeout(function(){updateLeafletPins();},400);
 }
 
 function addBaseMarkerDefault(map){
