@@ -972,6 +972,26 @@ function formatDate(d){
 // =================================================================
 // DETAIL SHEET
 // =================================================================
+function addToRouteFromDetail(id){
+  const c=C.find(x=>x.id===id);
+  if(!c)return;
+  // すでにルートに入っているか確認
+  const already=routeOrder.some(x=>x.id===id);
+  if(already){
+    showToast('⚠️ '+c.name+'さんはすでにルートに入っています','err');
+    return;
+  }
+  // ルートに追加（末尾に追加）
+  routeOrder.push(c);
+  renderRouteList();
+  updateRouteStats();
+  closeDetailSheet();
+  showToast('✅ '+c.name+'さんをルートに追加しました','ok');
+  // 0.8秒後にルートタブに移動
+  setTimeout(function(){switchTab('route');},800);
+}
+
+
 function openDetailSheet(id){
   const c=C.find(x=>x.id===id);
   if(!c)return;
@@ -1049,6 +1069,7 @@ function openDetailSheet(id){
       <button class="btn btn-outline" style="flex:1;" onclick="startPinSetMode(${c.id})">📍 地図でピンを設定</button>
       <button class="btn btn-outline" style="flex:1;" onclick="openInMapsWithAddr('${encodeURIComponent(c.addr)}','${encodeURIComponent(c.name)}')">🗺️ マップで開く</button>
     </div>
+    <button class="btn btn-success" style="width:100%;margin-top:8px;" onclick="addToRouteFromDetail(${c.id})">🚚 この顧客をルートに追加</button>
     <button class="btn btn-danger" style="width:100%;margin-top:8px;" onclick="closeDetailSheet();delCustomer(${c.id})">🗑️ この顧客を削除</button>
   `;
   document.getElementById('detailSheet').classList.add('open');
