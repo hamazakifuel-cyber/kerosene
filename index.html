@@ -371,6 +371,9 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
     <div style="display:flex;gap:8px;padding:10px;flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" style="flex:1;" onclick="openInGoogleMaps()">📍 Googleマップでルートを開く</button>
       <button class="btn btn-outline btn-sm" onclick="locateMe()">📡 現在地</button>
+      <button class="btn btn-outline btn-sm" onclick="resetMapRotation()" style="width:44px;padding:6px;font-size:18px;display:flex;align-items:center;justify-content:center;" title="北向きに戻す">
+        <span id="compassArrow" style="display:inline-block;transition:transform .3s;">🧭</span>
+      </button>
       <button class="btn btn-success btn-sm" style="width:100%;" onclick="startNewCustomerPinMode()">📍 地図をタップして新規顧客を登録</button>
     </div>
 
@@ -685,6 +688,62 @@ function resetMapRotation(){
   if(_leafletMap.setBearing){_leafletMap.setBearing(0);}
   showToast('🧭 北向きに戻しました','ok');
 }
+// =================================================================
+// 地図回転（CSS transform方式 - iOS安全）
+// =================================================================
+function applyMapRotation(deg){
+  _mapRotation=deg;
+  const container=document.getElementById('leafletMap');
+  if(!container)return;
+  container.style.transform='rotate('+deg+'deg)';
+  container.style.transformOrigin='center center';
+  // コンパスボタンの矢印を回転（北の方向を示す）
+  const compass=document.getElementById('compassArrow');
+  if(compass)compass.style.transform='rotate('+(-deg)+'deg)';
+}
+
+function resetMapRotation(){
+  applyMapRotation(0);
+  showToast('🧭 北向きに戻しました','ok');
+}
+
+function setupMapRotation(){
+  const container=document.getElementById('leafletMap');
+  if(!container)return;
+
+  let startAngle=null;
+  let startRotation=0;
+
+  function getAngle(touches){
+    const dx=touches[1].clientX-touches[0].clientX;
+    const dy=touches[1].clientY-touches[0].clientY;
+    return Math.atan2(dy,dx)*(180/Math.PI);
+  }
+
+  container.addEventListener('touchstart',function(e){
+    if(e.touches.length===2){
+      startAngle=getAngle(e.touches);
+      startRotation=_mapRotation;
+      e.preventDefault();
+    }
+  },{passive:false});
+
+  container.addEventListener('touchmove',function(e){
+    if(e.touches.length===2&&startAngle!==null){
+      const currentAngle=getAngle(e.touches);
+      const delta=currentAngle-startAngle;
+      applyMapRotation(startRotation+delta);
+      e.preventDefault();
+    }
+  },{passive:false});
+
+  container.addEventListener('touchend',function(e){
+    if(e.touches.length<2){
+      startAngle=null;
+    }
+  });
+}
+
 function showGpsPermissionModal(){
   var existing=document.getElementById('gpsPermModal');if(existing)existing.remove();
   var modal=document.createElement('div');
@@ -764,6 +823,8 @@ let basePrice=parseInt(localStorage.getItem('v4_basePrice')||'145');
 let baseOfficeName=localStorage.getItem('v4_officeName')||'';
 let baseOfficeAddr=localStorage.getItem('v4_officeAddr')||'';
 let _leafletMap=null,_gpsMarker=null,_gpsCircle=null,_baseMarker=null;
+let _mapRotation=0; // 現在の回転角度（度）
+
 
 function getPrice(tier,manualPrice){
   const t=PRICE_TIERS[tier]||PRICE_TIERS[6];
@@ -1527,6 +1588,8 @@ function initLeafletMap(){
 
   // 顧客ピン表示
   setTimeout(function(){updateLeafletPins();},400);
+  // 回転操作のセットアップ
+  setupMapRotation();
 }
 
 function addBaseMarkerDefault(map){
