@@ -1219,90 +1219,86 @@ function markDone(id){completedIds.add(id);renderRouteList();updateRouteStats();
 function setupRouteDrag(){
   const list=document.getElementById('routeList');
   if(!list)return;
+
+  // 重複登録防止：既存リスナーを削除して新しいものを登録
+  const newList=list.cloneNode(true);
+  list.parentNode.replaceChild(newList,list);
+
   let dragIdx=null;
   let dragEl=null;
-  let placeholder=null;
   let startY=0;
-  let currentY=0;
+  let lastTargetIdx=null;
 
-  function getCardIndex(el){
-    const cards=[...list.querySelectorAll('.route-card')];
-    return cards.indexOf(el);
-  }
-
-  function onTouchStart(e){
+  newList.addEventListener('touchstart',function(e){
     const handle=e.target.closest('.drag-handle');
     if(!handle)return;
     dragEl=handle.closest('.route-card');
     if(!dragEl)return;
-    const id=parseInt(dragEl.dataset.id);
-    if(completedIds.has(id)){showToast('⚠️ 完了済みは移動できません','err');return;}
-    dragIdx=getCardIndex(dragEl);
+    // 完了済みでも移動可能にする（完了後も並び替え必要なため）
+    dragIdx=parseInt(handle.dataset.idx);
     startY=e.touches[0].clientY;
-    currentY=startY;
-    dragEl.style.opacity='0.5';
-    dragEl.style.transform='scale(1.02)';
-    dragEl.style.zIndex='100';
+    lastTargetIdx=dragIdx;
+    dragEl.style.opacity='0.6';
+    dragEl.style.boxShadow='0 8px 24px rgba(0,0,0,.25)';
+    dragEl.style.zIndex='999';
     dragEl.style.position='relative';
-    dragEl.style.boxShadow='0 8px 24px rgba(0,0,0,.2)';
     e.preventDefault();
-  }
+  },{passive:false});
 
-  function onTouchMove(e){
-    if(!dragEl)return;
-    currentY=e.touches[0].clientY;
-    const dy=currentY-startY;
-    dragEl.style.transform='scale(1.02) translateY('+dy+'px)';
+  newList.addEventListener('touchmove',function(e){
+    if(dragEl===null||dragIdx===null)return;
+    const touch=e.touches[0];
+    const dy=touch.clientY-startY;
+    dragEl.style.transform='translateY('+dy+'px)';
 
-    // どのカードの上にいるか判定
-    const cards=[...list.querySelectorAll('.route-card')];
+    // ドラッグ中カードの中心Y位置
     const dragRect=dragEl.getBoundingClientRect();
-    const dragCenter=dragRect.top+dragRect.height/2+dy;
+    const dragCenterY=dragRect.top+dragRect.height/2;
 
-    let targetIdx=dragIdx;
-    cards.forEach((card,i)=>{
+    // 他のカードと位置を比較
+    const cards=[...newList.querySelectorAll('.route-card')];
+    let newTarget=dragIdx;
+    cards.forEach(function(card,i){
       if(card===dragEl)return;
-      const rect=card.getBoundingClientRect();
-      const center=rect.top+rect.height/2;
-      if(dragCenter>center)targetIdx=i;
+      const r=card.getBoundingClientRect();
+      const cardCenterY=r.top+r.height/2;
+      if(i<dragIdx&&dragCenterY<cardCenterY){newTarget=i;}
+      if(i>dragIdx&&dragCenterY>cardCenterY){newTarget=i;}
     });
 
-    if(targetIdx!==dragIdx){
-      // ルート配列を更新してハイライト
-      const tmp=routeOrder[dragIdx];
-      routeOrder.splice(dragIdx,1);
-      routeOrder.splice(targetIdx,0,tmp);
-      dragIdx=targetIdx;
-      startY=currentY;
-      // 他カードを再レンダリングしてドラッグ中のカードは維持
-      const allCards=[...list.querySelectorAll('.route-card')];
-      allCards.forEach((c,i)=>{
-        if(c!==dragEl){
-          c.style.transform='';
-          c.style.opacity='1';
-        }
+    if(newTarget!==lastTargetIdx){
+      // routeOrderを更新
+      const item=routeOrder.splice(dragIdx,1)[0];
+      routeOrder.splice(newTarget,0,item);
+      // data-idxを更新
+      dragIdx=newTarget;
+      lastTargetIdx=newTarget;
+      startY=touch.clientY;
+      dragEl.style.transform='';
+      // 他カードを再描画（ドラッグ中カードは保持）
+      cards.forEach(function(card){
+        if(card!==dragEl){card.style.transform='';}
       });
     }
     e.preventDefault();
-  }
+  },{passive:false});
 
-  function onTouchEnd(e){
+  newList.addEventListener('touchend',function(e){
     if(!dragEl)return;
-    dragEl.style.opacity='1';
-    dragEl.style.transform='';
+    dragEl.style.opacity='';
+    dragEl.style.boxShadow='';
     dragEl.style.zIndex='';
     dragEl.style.position='';
-    dragEl.style.boxShadow='';
+    dragEl.style.transform='';
     dragEl=null;
     dragIdx=null;
+    lastTargetIdx=null;
+    // 完全再描画
     renderRouteList();
     updateRouteStats();
-  }
-
-  list.addEventListener('touchstart',onTouchStart,{passive:false});
-  list.addEventListener('touchmove',onTouchMove,{passive:false});
-  list.addEventListener('touchend',onTouchEnd);
+  });
 }
+
 
 function moveRouteItem(idx,dir){
   const newIdx=idx+dir;
