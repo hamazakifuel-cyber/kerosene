@@ -252,7 +252,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 .toast.ok{background:var(--green);}
 
 /* FAB */
-.fab{position:fixed;bottom:82px;right:16px;width:54px;height:54px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 20px rgba(33,150,243,.4);z-index:99;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.fab{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom,20px));right:20px;width:auto;min-width:54px;height:54px;border-radius:27px;padding:0 18px;background:var(--accent);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(33,150,243,.4);z-index:200;display:flex;align-items:center;justify-content:center;transition:all .2s;gap:4px;}
 .fab:active{transform:scale(.92);}
 
 /* PHOTO VIEWER */
@@ -590,7 +590,14 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
       <div style="background:var(--s1);border-radius:10px;padding:14px;margin-bottom:14px;">
         <div style="font-size:18px;font-weight:900;" id="fm-name"></div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="fm-addr"></div>
-        <div style="font-size:13px;color:var(--accent);margin-top:4px;" id="fm-price"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+          <div style="font-size:13px;color:var(--accent);" id="fm-price"></div>
+          <button onclick="togglePriceEdit()" id="togglePriceBtn" style="font-size:13px;font-weight:700;padding:7px 14px;background:var(--orange);border:none;border-radius:8px;cursor:pointer;color:#fff;">単価を修正</button>
+        </div>
+        <div id="fm-price-edit" style="display:none;margin-top:8px;">
+          <label class="fl">単価（円/L）</label>
+          <input class="fi" id="f_fuel_price" placeholder="145" type="number" style="font-size:22px;text-align:center;color:var(--accent);" oninput="updateFuelTotal()">
+        </div>
       </div>
       <div class="fg">
         <label class="fl">給油量（L）</label>
@@ -1460,6 +1467,39 @@ function saveCustomer(){
 // =================================================================
 // FUEL
 // =================================================================
+function updateFuelTotal(){
+  const liter=parseFloat(document.getElementById('f_liter').value)||0;
+  const c=C.find(x=>x.id===fuelTargetId);
+  if(!c)return;
+  const priceEditEl=document.getElementById('fm-price-edit');
+  const fuelPriceEl=document.getElementById('f_fuel_price');
+  const useCustom=priceEditEl&&priceEditEl.style.display!=='none'&&fuelPriceEl&&parseFloat(fuelPriceEl.value)>0;
+  const unitPrice=useCustom?parseFloat(fuelPriceEl.value):calcCustomerPrice(c);
+  const totalEl=document.getElementById('fm-total');
+  if(totalEl)totalEl.textContent='¥ '+(liter*unitPrice).toLocaleString();
+  // fm-priceの表示も更新
+  const fmPrice=document.getElementById('fm-price');
+  if(fmPrice)fmPrice.textContent='単価 ¥'+unitPrice+'/L';
+}
+
+function togglePriceEdit(){
+  const wrap=document.getElementById('fm-price-edit');
+  const btn=document.getElementById('togglePriceBtn');
+  if(!wrap)return;
+  if(wrap.style.display==='none'){
+    wrap.style.display='block';
+    const c=C.find(x=>x.id===fuelTargetId);
+    const priceEl=document.getElementById('f_fuel_price');
+    if(priceEl&&c)priceEl.value=calcCustomerPrice(c);
+    if(btn){btn.textContent='▲ 単価を閉じる';btn.style.background='var(--muted)';}
+    updateFuelTotal();
+  } else {
+    wrap.style.display='none';
+    if(btn){btn.textContent='単価を修正';btn.style.background='var(--orange)';}
+    updateFuelTotal();
+  }
+}
+
 function openFuelModal(id){
   fuelTargetId=id;
   const c=C.find(x=>x.id===id);
@@ -1473,7 +1513,12 @@ function openFuelModal(id){
 }
 function closeFuelModal(){
   document.getElementById('fuelModal').classList.remove('open');
-  // ×で閉じた場合はコールバックをリセット（入力未完了）
+  // 単価修正欄を閉じる
+  const wrap=document.getElementById('fm-price-edit');
+  if(wrap)wrap.style.display='none';
+  const btn=document.getElementById('togglePriceBtn');
+  if(btn){btn.textContent='単価を修正';btn.style.background='var(--orange)';}
+  // ×で閉じた場合はコールバックをリセット
   window._fuelCallbackId=null;
 }
 
@@ -1482,14 +1527,18 @@ function saveFuel(){
   if(liter<=0){showToast('⚠️ 給油量を入力してください','err');return;}
   const c=C.find(x=>x.id===fuelTargetId);
   const today=new Date().toISOString().split('T')[0];
+  // カスタム単価の取得
+  const priceEl=document.getElementById('f_fuel_price');
+  const priceEditOpen=document.getElementById('fm-price-edit').style.display!=='none';
+  const customPrice=(priceEl&&priceEditOpen&&parseFloat(priceEl.value)>0)?parseFloat(priceEl.value):calcCustomerPrice(c);
   // 同日に既存記録があれば更新、なければ新規追加
   const todayRec=FH.find(h=>h.cid===fuelTargetId&&h.date===today);
   if(todayRec){
     todayRec.liter=liter;
-    todayRec.price=calcCustomerPrice(c);
+    todayRec.price=customPrice;
     todayRec.note=document.getElementById('f_fnote').value;
   } else {
-    FH.push({id:Date.now(),cid:fuelTargetId,date:today,liter,price:calcCustomerPrice(c),note:document.getElementById('f_fnote').value});
+    FH.push({id:Date.now(),cid:fuelTargetId,date:today,liter,price:customPrice,note:document.getElementById('f_fnote').value});
   }
   c.lastDate=today;
   completedIds.add(fuelTargetId);
@@ -1519,7 +1568,13 @@ function nk(k){
   document.getElementById('np-val').textContent=npBuf||'0';
   if(npTarget==='f_liter'){
     const c=C.find(x=>x.id===fuelTargetId);
-    if(c)document.getElementById('fm-total').textContent='¥ '+((parseFloat(npBuf)||0)*calcCustomerPrice(c)).toLocaleString();
+    if(c){
+      const priceEditEl=document.getElementById('fm-price-edit');
+      const fuelPriceEl=document.getElementById('f_fuel_price');
+      const useCustom=priceEditEl&&priceEditEl.style.display!=='none'&&fuelPriceEl&&parseFloat(fuelPriceEl.value)>0;
+      const unitPrice=useCustom?parseFloat(fuelPriceEl.value):calcCustomerPrice(c);
+      document.getElementById('fm-total').textContent='¥ '+((parseFloat(npBuf)||0)*unitPrice).toLocaleString();
+    }
   }
 }
 function confirmNp(){if(npTarget)document.getElementById(npTarget).value=npBuf||'0';closeNp();}
