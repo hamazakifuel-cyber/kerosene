@@ -69,8 +69,8 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 .citem-thumb img{width:80px;height:80px;object-fit:cover;}
 .citem-body{flex:1;padding:10px 12px;min-width:0;}
 .citem-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
-.citem-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
-.citem-name{font-size:16px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.citem-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;}
+.citem-name{font-size:18px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .citem-meta{font-size:13px;color:var(--muted);margin-bottom:3px;}
 .citem-addr{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .citem-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:4px;}
@@ -99,6 +99,11 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 .map-pin-wrap{position:absolute;transform:translate(-50%,-100%);cursor:pointer;z-index:2;}
 .map-pin-wrap:hover{z-index:10;}
 .map-pin-wrap:hover .map-label{opacity:1;}
+/* Compass */
+.map-compass{position:absolute;top:10px;right:10px;width:50px;height:50px;background:rgba(255,255,255,.95);border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;z-index:1000;border:2px solid #e0e0e0;}
+.compass-needle{width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:28px solid var(--red);position:relative;}
+.compass-needle::after{content:'N';position:absolute;bottom:-24px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:900;color:var(--red);}
+.compass-base{position:absolute;width:4px;height:4px;background:#333;border-radius:50%;}
 /* Pin shapes */
 .pin-ball{width:24px;height:24px;border-radius:50%;border:2.5px solid rgba(255,255,255,.8);box-shadow:0 3px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;position:relative;}
 .pin-ball::after{content:'';position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;}
@@ -217,7 +222,7 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 .stat-card.green .stat-n{color:var(--green);}
 .stat-card.red .stat-n{color:var(--red);}
 .stat-card.gold .stat-n{color:var(--yellow);}
-.stat-l{font-size:11px;color:var(--muted);margin-top:2px;}
+.stat-l{font-size:13px;color:var(--muted);margin-top:2px;font-weight:700;}
 
 /* ROUTE CONTROLS */
 .route-ctrl{background:var(--white);border-radius:var(--r);padding:14px;margin-bottom:10px;box-shadow:var(--shadow);}
@@ -317,57 +322,14 @@ header{background:var(--white);padding:12px 16px;display:flex;align-items:center
 </div>
 
 <!-- ===== MAP TAB ===== -->
-<div class="view" id="view-settings">
-  <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
-    <div style="font-size:16px;font-weight:900;margin-bottom:4px;">🏯 拠点設定</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">地図の中心となる拠点を設定します</div>
-    <div class="fg"><label class="fl">拠点名</label><input class="fi" id="baseOfficeName" placeholder="会社"></div>
-    <div class="fg"><label class="fl">住所</label><input class="fi" id="baseOfficeAddr" placeholder="北海道札幌市..."></div>
-    <div style="background:rgba(33,150,243,.08);border:1px solid var(--accent);border-radius:8px;padding:12px;margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">📍 緯度・経度（Googleマップで確認）</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Googleマップで拠点を長押し→座標をコピーして入力してください</div>
-      <div style="display:flex;gap:8px;">
-        <div style="flex:1;"><label class="fl">緯度</label><input class="fi" id="baseOfficeLat" placeholder="例：43.1105" type="number" step="0.0001"></div>
-        <div style="flex:1;"><label class="fl">経度</label><input class="fi" id="baseOfficeLng" placeholder="例：141.3421" type="number" step="0.0001"></div>
-      </div>
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="saveBaseOffice()">💾 拠点を保存（住所から自動取得）</button>
-    <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:4px;">住所入力のみで保存すると自動で座標を検索します<br>精度を上げたい場合は緯度・経度も入力してください</div>
-  </div>
-  <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
-    <div style="font-size:16px;font-weight:900;margin-bottom:4px;">⚙️ 基準単価設定</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">配達の基準となる単価を設定してください</div>
-    <div style="background:var(--s1);border-radius:10px;padding:16px;margin-bottom:12px;">
-      <label class="fl">基準単価（円/L）</label>
-      <input class="fi" id="basePriceInput" type="text" readonly onclick="openNp('basePriceInput','基準単価','円/L')" style="font-size:32px;font-family:'Bebas Neue',sans-serif;color:var(--accent);text-align:center;">
-    </div>
-    <button class="btn btn-primary" style="width:100%;" onclick="saveBasePrice()">💾 基準単価を保存</button>
-  </div>
-  <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
-    <div style="font-size:16px;font-weight:900;margin-bottom:4px;">💰 単価区分</div>
-    <div id="priceTierList"></div>
-  </div>
-  <div style="background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
-    <div style="font-size:16px;font-weight:900;margin-bottom:4px;">💾 データバックアップ</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">顧客データ・給油履歴を一括でバックアップ・復元できます</div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <button class="btn btn-success" style="width:100%;" onclick="backupData()">📤 バックアップを書き出す</button>
-      <label class="btn btn-outline" style="width:100%;cursor:pointer;justify-content:center;">📥 バックアップから復元する<input type="file" accept=".json" style="display:none;" onchange="restoreData(this)"></label>
-      <button class="btn btn-outline" style="width:100%;color:var(--red);border-color:var(--red);" onclick="resetAllData()">⚠️ 全データをリセット</button>
-    </div>
-    <div id="backupStatus" style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center;"></div>
-  </div>
-  <div style="background:var(--white);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);">
-    <div style="font-size:16px;font-weight:900;margin-bottom:8px;">📋 アプリ情報</div>
-    <div style="font-size:13px;color:var(--muted);line-height:2;">
-      <div>アプリ名：浜崎式 灯油配達管理Pro</div><div>バージョン：Ver 1.3</div>
-    </div>
-  </div>
-</div>
 
 <div class="view active" id="view-map">
-  <div style="background:var(--white);border-radius:var(--r);overflow:hidden;margin-bottom:10px;box-shadow:var(--shadow);">
+  <div style="background:var(--white);border-radius:var(--r);overflow:hidden;margin-bottom:10px;box-shadow:var(--shadow);position:relative;">
     <div id="leafletMap" style="width:100%;height:450px;background:#e8f0fe;overflow:hidden;"></div>
+    <div class="map-compass">
+      <div class="compass-needle"></div>
+      <div class="compass-base"></div>
+    </div>
     <div style="display:flex;gap:8px;padding:10px;flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" style="flex:1;" onclick="openInGoogleMaps()">📍 Googleマップでルートを開く</button>
       <button class="btn btn-outline btn-sm" onclick="locateMe()">📡 現在地</button>
