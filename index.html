@@ -39,7 +39,44 @@ body.dark-mode{
   --shadow2:0 8px 32px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;padding-bottom:70px;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;padding-bottom:70px;font-size:14px;}
+
+/* iPad用の最適化 */
+@media (min-width: 768px) {
+  body{font-size:16px;}
+  .h-title{font-size:22px !important;}
+  .h-sub{font-size:12px !important;}
+  .btab-ic{font-size:32px !important;}
+  .btab-lbl{font-size:16px !important;}
+  .citem-name{font-size:20px !important;}
+  .citem-meta{font-size:15px !important;}
+  .citem-addr{font-size:14px !important;}
+  .stat-n{font-size:42px !important;}
+  .stat-l{font-size:15px !important;}
+  .btn{font-size:15px !important;padding:12px 18px !important;}
+  .btn-sm{font-size:14px !important;padding:9px 14px !important;}
+  .search-wrap input{font-size:18px !important;}
+  .fi{font-size:18px !important;}
+  .fl{font-size:14px !important;}
+  .ktab{font-size:15px !important;}
+  #leafletMap{height:600px !important;}
+}
+
+/* iPad Pro用のさらなる最適化 */
+@media (min-width: 1024px) {
+  body{font-size:17px;}
+  .h-title{font-size:24px !important;}
+  .citem-name{font-size:22px !important;}
+  .citem-meta{font-size:16px !important;}
+  .citem-addr{font-size:15px !important;}
+  .stat-n{font-size:48px !important;}
+  .stat-l{font-size:16px !important;}
+  .sheet-title{font-size:24px !important;}
+  .search-wrap input{font-size:19px !important;}
+  .fi{font-size:19px !important;}
+  .fl{font-size:15px !important;}
+  #leafletMap{height:700px !important;}
+}
 
 /* HEADER */
 header{background:var(--white);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
